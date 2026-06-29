@@ -31,21 +31,21 @@ export default function Tasks() {
     }, []);
 
     const fetchTasks = async () => {
-        const data = await api.get("/api/tasks");
+        const data = await api.get({ endpoint: "/api/tasks" });
         if (Array.isArray(data)) setTasks(data);
     };
 
     const createTask = async () => {
         if (!newTitle.trim()) return;
 
-        const task = await api.post(
-            "/api/tasks",
-            {
+        const task = await api.post({
+            endpoint: "/api/tasks",
+            body: {
                 title: newTitle,
                 description: newDescription.trim() || undefined,
             },
-            true,
-        );
+            auth: true,
+        });
         if (task.id) {
             setTasks([...tasks, task]);
             setNewTitle("");
@@ -54,8 +54,11 @@ export default function Tasks() {
     };
 
     const toggleTask = async (task: Task) => {
-        const updated = await api.put(`/api/tasks/${task.id}`, {
-            completed: !task.completed,
+        const updated = await api.put({
+            endpoint: `/api/tasks/${task.id}`,
+            body: {
+                completed: !task.completed,
+            },
         });
         if (updated.id) {
             setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
@@ -69,7 +72,7 @@ export default function Tasks() {
                 text: "Elimina",
                 style: "destructive",
                 onPress: async () => {
-                    await api.delete(`/api/tasks/${id}`);
+                    await api.delete({ endpoint: `/api/tasks/${id}` });
                     setTasks(tasks.filter((t) => t.id !== id));
                 },
             },
@@ -211,11 +214,6 @@ const styles = StyleSheet.create({
         color: "#2DD4BF",
         fontSize: 16,
     },
-    inputRow: {
-        flexDirection: "row",
-        gap: 8,
-        marginBottom: 24,
-    },
     input: {
         backgroundColor: "#1a1a1a",
         borderWidth: 1,
@@ -269,9 +267,6 @@ const styles = StyleSheet.create({
     taskTitleDone: {
         textDecorationLine: "line-through",
         color: "#a0a0a0",
-    },
-    deleteButton: {
-        fontSize: 18,
     },
     emptyText: {
         color: "#a0a0a0",
