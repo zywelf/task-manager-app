@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { register } from "../../services/auth";
+import i18n from "@/i18n";
 
 export default function Register() {
     const [name, setName] = useState("");
@@ -19,7 +20,7 @@ export default function Register() {
     const handleRegister = async () => {
         console.log("HandleRegister chiamato", { name, email, password });
         if (!name || !email || !password) {
-            Alert.alert("Errore", "Tutti i campi sono obbligatori");
+            Alert.alert(i18n.t("auth.errorTitle"), i18n.t("auth.errorFields"));
             return;
         }
 
@@ -28,7 +29,7 @@ export default function Register() {
             const data = await register({ name, email, password });
             console.log("Risposta API", data);
             if (data.user) {
-                Alert.alert("Successo", "Account creato! Accedi ora.", [
+                Alert.alert(i18n.t("auth.successTitle"), i18n.t("auth.successRegister"), [
                     {
                         text: "OK",
                         onPress: () => router.push("/auth/login"),
@@ -40,10 +41,10 @@ export default function Register() {
                     .join("\n");
                 Alert.alert("Errore di validazione", messages);
             } else {
-                Alert.alert("Errore", data.message || "Registrazione fallita");
+                Alert.alert(i18n.t("auth.errorTitle"), data.message || i18n.t("auth.errorRegister"));
             }
         } catch {
-            Alert.alert("Errore", "Impossibile connettersi al server");
+            Alert.alert(i18n.t("auth.errorTitle"), i18n.t("auth.errorConnection"));
         } finally {
             setIsLoading(false);
         }
@@ -56,7 +57,7 @@ export default function Register() {
 
             <TextInput
                 style={styles.input}
-                placeholder="Nome"
+                placeholder={i18n.t("auth.name")}
                 placeholderTextColor="#a0a0a0"
                 value={name}
                 onChangeText={setName}
@@ -64,7 +65,7 @@ export default function Register() {
 
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={i18n.t("auth.email")}
                 placeholderTextColor="#a0a0a0"
                 value={email}
                 onChangeText={setEmail}
@@ -74,7 +75,7 @@ export default function Register() {
 
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder={i18n.t("auth.password")}
                 placeholderTextColor="#a0a0a0"
                 value={password}
                 onChangeText={setPassword}
@@ -87,12 +88,12 @@ export default function Register() {
                 disabled={isLoading}
             >
                 <Text style={styles.buttonText}>
-                    {isLoading ? "Registrazione..." : "Registrati"}
+                    {isLoading ? i18n.t("auth.registering") : i18n.t("auth.register")}
                 </Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/auth/login")}>
-                <Text style={styles.link}>Hai già un account? Accedi</Text>
+                <Text style={styles.link}>{i18n.t("auth.hasAccount")}</Text>
             </TouchableOpacity>
         </View>
     );

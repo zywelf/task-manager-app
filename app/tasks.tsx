@@ -17,6 +17,7 @@ import TaskItem from "@/components/TaskItem";
 import Toast from "react-native-toast-message";
 import { Info } from "lucide-react-native";
 import CustomAlert from "@/components/CustomAlert";
+import i18n from "@/i18n";
 
 type Task = {
     id: number;
@@ -69,7 +70,7 @@ export default function Tasks() {
             setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
             Toast.show({
                 type: updated.completed ? "success" : "info",
-                text1: updated.completed ? "Task completata!" : "Task riaperta",
+                text1: updated.completed ? i18n.t("tasks.toastCompleted") : i18n.t("tasks.toastReopened"),
                 visibilityTime: 2000,
                 position: "bottom",
             });
@@ -77,17 +78,17 @@ export default function Tasks() {
     };
 
     const deleteTask = async (id: number) => {
-        Alert.alert("Elimina task", "Sei sicuro?", [
-            { text: "Annulla", style: "cancel" },
+        Alert.alert(i18n.t("tasks.deleteConfirmTitle"), i18n.t("tasks.deleteConfirmMessage"), [
+            { text: i18n.t("tasks.deleteConfirmCancel"), style: "cancel" },
             {
-                text: "Elimina",
+                text: i18n.t("tasks.deleteConfirmDelete"),
                 style: "destructive",
                 onPress: async () => {
                     await api.delete({ endpoint: `/api/tasks/${id}` });
                     setTasks(tasks.filter((t) => t.id !== id));
                     Toast.show({
                         type: "error",
-                        text1: "Task eliminato",
+                        text1: i18n.t("tasks.toastDelete"),
                         visibilityTime: 2000,
                         position: "bottom",
                     });
@@ -98,14 +99,14 @@ export default function Tasks() {
 
     const handleLogout = async () => {
         await logout();
-        router.replace("/auth/login");
+        router.push("/auth/login");
     };
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>I miei task</Text>
+                    <Text style={styles.title}>{i18n.t("tasks.title")}</Text>
                     <View
                         style={{
                             flexDirection: "row",
@@ -119,7 +120,7 @@ export default function Tasks() {
                             <Info size={22} color="#a0a0a0" />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleLogout}>
-                            <Text style={styles.logout}>Esci</Text>
+                            <Text style={styles.logout}>{i18n.t("tasks.logout")}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -127,14 +128,14 @@ export default function Tasks() {
                 <View style={styles.inputContainer}>
                     <TextInput
                         style={styles.input}
-                        placeholder="Titolo task"
+                        placeholder={i18n.t("tasks.titlePlaceholder")}
                         placeholderTextColor="#a0a0a0"
                         value={newTitle}
                         onChangeText={setNewTitle}
                     />
                     <TextInput
                         style={styles.input}
-                        placeholder="Descrizione (opzionale)"
+                        placeholder={i18n.t("tasks.descriptionPlaceholder")}
                         placeholderTextColor="#a0a0a0"
                         value={newDescription}
                         onChangeText={setNewDescription}
@@ -147,7 +148,7 @@ export default function Tasks() {
                         onPress={createTask}
                         disabled={!newTitle.trim()}
                     >
-                        <Text style={styles.addButtonText}>Aggiungi task</Text>
+                        <Text style={styles.addButtonText}>{i18n.t("tasks.addButton")}</Text>
                     </TouchableOpacity>
                 </View>
                 <Animated.View>
@@ -165,7 +166,7 @@ export default function Tasks() {
                         )}
                         ListEmptyComponent={
                             <Text style={styles.emptyText}>
-                                Nessun task. Aggiungine uno!
+                                {i18n.t("tasks.empty")}
                             </Text>
                         }
                     />
@@ -173,12 +174,12 @@ export default function Tasks() {
             </View>
             <CustomAlert
                 visible={showInfo}
-                title="Come funziona"
+                title={i18n.t("info.title")}
                 message={[
-                    "👈 Scorri a destra per completare o riaprire un task.",
-                    "👉 Scorri a sinistra per eliminarlo.",
+                    i18n.t("info.swipeRight"),
+                    i18n.t("info.swipeLeft"),
                 ]}
-                buttonText="Ho capito!"
+                buttonText={i18n.t("info.button")}
                 onClose={() => setShowInfo(false)}
             />
         </GestureHandlerRootView>
