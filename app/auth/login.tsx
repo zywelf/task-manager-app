@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { login } from "../../services/auth";
+import i18n from "@/i18n";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -17,7 +18,10 @@ export default function Login() {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert("Errore", "Inserisci email e password");
+            Alert.alert(
+                i18n.t("auth.errorTitle"),
+                i18n.t("auth.errorEmailPassword"),
+            );
             return;
         }
 
@@ -31,12 +35,18 @@ export default function Login() {
                 const messages = data.errors
                     .map((e: { message: string }) => e.message)
                     .join("\n");
-                Alert.alert("Errore di validazione", messages);
+                Alert.alert(i18n.t("auth.errorValidation"), messages);
             } else {
-                Alert.alert("Errore", data.message || "Registrazione fallita");
+                Alert.alert(
+                    i18n.t("auth.errorTitle"),
+                    data.message || i18n.t("auth.errorLogin"),
+                );
             }
         } catch {
-            Alert.alert("Errore", "Impossibile connettersi al server");
+            Alert.alert(
+                i18n.t("auth.errorTitle"),
+                i18n.t("auth.errorConnection"),
+            );
         } finally {
             setIsLoading(false);
         }
@@ -44,11 +54,11 @@ export default function Login() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Task Manager</Text>
-            <Text style={styles.subtitle}>Accedi al tuo account</Text>
+            <Text style={styles.title}>{i18n.t("auth.loginTitle")}</Text>
+            <Text style={styles.subtitle}>{i18n.t("auth.loginSubtitle")}</Text>
             <TextInput
                 style={styles.input}
-                placeholder="Email"
+                placeholder={i18n.t("auth.email")}
                 placeholderTextColor="#a0a0a0"
                 value={email}
                 onChangeText={setEmail}
@@ -57,7 +67,7 @@ export default function Login() {
             />
             <TextInput
                 style={styles.input}
-                placeholder="Password"
+                placeholder={i18n.t("auth.password")}
                 placeholderTextColor="#a0a0a0"
                 value={password}
                 onChangeText={setPassword}
@@ -69,12 +79,14 @@ export default function Login() {
                 disabled={isLoading}
             >
                 <Text style={styles.buttonText}>
-                    {isLoading ? "Accesso..." : "Accedi"}
+                    {isLoading
+                        ? i18n.t("auth.loggingIn")
+                        : i18n.t("auth.login")}
                 </Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/auth/register")}>
-                <Text style={styles.link}>Non hai un account? Registrati</Text>
+                <Text style={styles.link}>{i18n.t("auth.noAccount")}</Text>
             </TouchableOpacity>
         </View>
     );
