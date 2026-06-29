@@ -17,6 +17,7 @@ export default function Register() {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleRegister = async () => {
+        console.log("HandleRegister chiamato", { name, email, password })
         if (!name || !email || !password) {
             Alert.alert("Errore", "Tutti i campi sono obbligatori");
             return;
@@ -25,11 +26,19 @@ export default function Register() {
         setIsLoading(true);
         try {
             const data = await register(name, email, password);
-
+            console.log("Risposta API", data)
             if (data.user) {
                 Alert.alert("Successo", "Account creato! Accedi ora.", [
-                    { text: "OK", onPress: () => router.replace("/auth/login") }
+                    {
+                        text: "OK",
+                        onPress: () => router.replace("/auth/login"),
+                    },
                 ]);
+            } else if (data.errors) {
+                const messages = data.errors
+                    .map((e: { message: string }) => e.message)
+                    .join("\n");
+                Alert.alert("Errore di validazione", messages);
             } else {
                 Alert.alert("Errore", data.message || "Registrazione fallita");
             }

@@ -27,8 +27,13 @@ export default function Login() {
 
             if (data.token) {
                 router.replace("/tasks");
+            } else if (data.errors) {
+                const messages = data.errors
+                    .map((e: { message: string }) => e.message)
+                    .join("\n");
+                Alert.alert("Errore di validazione", messages);
             } else {
-                Alert.alert("Errore", data.message || "Credenziali non valide");
+                Alert.alert("Errore", data.message || "Registrazione fallita");
             }
         } catch {
             Alert.alert("Errore", "Impossibile connettersi al server");
@@ -41,7 +46,7 @@ export default function Login() {
         <View style={styles.container}>
             <Text style={styles.title}>Task Manager</Text>
             <Text style={styles.subtitle}>Accedi al tuo account</Text>
-            <TextInput 
+            <TextInput
                 style={styles.input}
                 placeholder="Email"
                 placeholderTextColor="#a0a0a0"
@@ -50,7 +55,7 @@ export default function Login() {
                 keyboardType="email-address"
                 autoCapitalize="none"
             />
-            <TextInput 
+            <TextInput
                 style={styles.input}
                 placeholder="Password"
                 placeholderTextColor="#a0a0a0"
@@ -58,7 +63,7 @@ export default function Login() {
                 onChangeText={setPassword}
                 secureTextEntry
             />
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={handleLogin}
                 disabled={isLoading}
@@ -72,10 +77,10 @@ export default function Login() {
                 <Text style={styles.link}>Non hai un account? Registrati</Text>
             </TouchableOpacity>
         </View>
-    )
+    );
 }
 
-const styles = StyleSheet.create ({
+const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: "#0a0a0a",
@@ -125,4 +130,4 @@ const styles = StyleSheet.create ({
         textAlign: "center",
         fontSize: 14,
     },
-})
+});
