@@ -31,7 +31,7 @@ export default function Register() {
                 Alert.alert("Successo", "Account creato! Accedi ora.", [
                     {
                         text: "OK",
-                        onPress: () => router.replace("/auth/login"),
+                        onPress: () => router.push("/auth/login"),
                     },
                 ]);
             } else if (data.errors) {
@@ -91,7 +91,7 @@ export default function Register() {
                 </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => router.replace("/auth/login")}>
+            <TouchableOpacity onPress={() => router.push("/auth/login")}>
                 <Text style={styles.link}>Hai già un account? Accedi</Text>
             </TouchableOpacity>
         </View>
