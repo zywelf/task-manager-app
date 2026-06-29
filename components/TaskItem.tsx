@@ -73,7 +73,7 @@ export default function TaskItem({
                             {item.title}
                         </Text>
                         {item.description && (
-                            <Text style={styles.taskDescription}>
+                            <Text style={[styles.taskDescription, item.completed && styles.taskTitleDone]}>
                                 {item.description}
                             </Text>
                         )}

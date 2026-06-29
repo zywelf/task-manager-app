@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
     View,
     Text,
@@ -9,12 +9,12 @@ import {
     TextInput,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import Animated, { FadeIn, SlideInLeft } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { router } from "expo-router";
 import { logout } from "../services/auth";
 import { api } from "../services/api";
 import TaskItem from "@/components/TaskItem";
+import Toast from "react-native-toast-message";
 
 type Task = {
     id: number;
@@ -27,7 +27,6 @@ export default function Tasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [newTitle, setNewTitle] = useState("");
     const [newDescription, setNewDescription] = useState("");
-    const swipeableRefs = useRef<{ [key: number]: any }>({});
 
     useEffect(() => {
         fetchTasks();
@@ -65,6 +64,12 @@ export default function Tasks() {
         });
         if (updated.id) {
             setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
+            Toast.show({
+                type: updated.completed ? "success" : "info",
+                text1: updated.completed ? "Task completata!" : "Task riaperta",
+                visibilityTime: 2000,
+                position: "bottom"
+            })
         }
     };
 
@@ -77,6 +82,12 @@ export default function Tasks() {
                 onPress: async () => {
                     await api.delete({ endpoint: `/api/tasks/${id}` });
                     setTasks(tasks.filter((t) => t.id !== id));
+                    Toast.show({
+                        type: "error",
+                        text1: "Task eliminato",
+                        visibilityTime: 2000,
+                        position: "bottom"
+                    })
                 },
             },
         ]);
