@@ -4,6 +4,7 @@ import ReanimatedSwipeable, {
     SwipeableMethods,
 } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { Check, Undo2, Trash2 } from "lucide-react-native";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type Task = {
     id: number;
@@ -24,6 +25,8 @@ export default function TaskItem({
     deleteTask,
 }: TaskItemProps) {
     const swipeableRef = useRef<SwipeableMethods>(null);
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
 
     return (
         <ReanimatedSwipeable
@@ -35,20 +38,16 @@ export default function TaskItem({
             }}
             renderLeftActions={() => (
                 <View style={styles.completeAction}>
-                    <Text style={styles.completeActionText}>
-                        {item.completed ? (
-                            <Undo2 size={22} color="#0a0a0a" />
-                        ) : (
-                            <Check size={22} color="#0a0a0a" />
-                        )}
-                    </Text>
+                    {item.completed ? (
+                        <Undo2 size={22} color={colors.background} />
+                    ) : (
+                        <Check size={22} color={colors.background} />
+                    )}
                 </View>
             )}
             renderRightActions={() => (
                 <View style={styles.deleteAction}>
-                    <Text style={styles.deleteActionText}>
-                        <Trash2 size={22} color="#fff" />
-                    </Text>
+                    <Trash2 size={22} color="#fff" />
                 </View>
             )}
         >
@@ -84,70 +83,61 @@ export default function TaskItem({
     );
 }
 
-const styles = StyleSheet.create({
-    taskItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#1a1a1a",
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 8,
-    },
-    taskLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    checkbox: {
-        width: 20,
-        height: 20,
-        borderRadius: 4,
-        borderWidth: 2,
-        borderColor: "#2DD4BF",
-        marginRight: 12,
-    },
-    checkboxDone: {
-        backgroundColor: "#2DD4BF",
-    },
-    taskTitle: {
-        color: "#ededed",
-        fontSize: 16,
-        flex: 1,
-    },
-    taskTitleDone: {
-        textDecorationLine: "line-through",
-        color: "#a0a0a0",
-    },
-    taskDescription: {
-        color: "#a0a0a0",
-        fontSize: 13,
-        marginTop: 2,
-    },
-    completeAction: {
-        backgroundColor: "#2DD4BF",
-        justifyContent: "center",
-        alignItems: "center",
-        width: 100,
-        borderRadius: 8,
-        marginBottom: 8,
-    },
-    completeActionText: {
-        color: "#0a0a0a",
-        fontWeight: "bold",
-        fontSize: 24,
-    },
-    deleteAction: {
-        backgroundColor: "#dc2626",
-        justifyContent: "center",
-        alignItems: "center",
-        width: 100,
-        borderRadius: 8,
-        marginBottom: 8,
-    },
-    deleteActionText: {
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: 24,
-    },
-});
+const getStyles = (colors: { background: string; card: string; border: string; text: string; textMuted: string; teal: string; red: string }) =>
+    StyleSheet.create({
+        taskItem: {
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: colors.card,
+            borderRadius: 8,
+            padding: 16,
+            marginBottom: 8,
+        },
+        taskLeft: {
+            flexDirection: "row",
+            alignItems: "center",
+            flex: 1,
+        },
+        checkbox: {
+            width: 20,
+            height: 20,
+            borderRadius: 4,
+            borderWidth: 2,
+            borderColor: colors.teal,
+            marginRight: 12,
+        },
+        checkboxDone: {
+            backgroundColor: colors.teal,
+        },
+        taskTitle: {
+            color: colors.text,
+            fontSize: 16,
+            flex: 1,
+        },
+        taskTitleDone: {
+            textDecorationLine: "line-through",
+            color: colors.textMuted,
+        },
+        taskDescription: {
+            color: colors.textMuted,
+            fontSize: 13,
+            marginTop: 2,
+        },
+        completeAction: {
+            backgroundColor: colors.teal,
+            justifyContent: "center",
+            alignItems: "center",
+            width: 100,
+            borderRadius: 8,
+            marginBottom: 8,
+        },
+        deleteAction: {
+            backgroundColor: colors.red,
+            justifyContent: "center",
+            alignItems: "center",
+            width: 100,
+            borderRadius: 8,
+            marginBottom: 8,
+        },
+    });

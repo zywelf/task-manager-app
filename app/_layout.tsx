@@ -1,12 +1,13 @@
 import { Stack } from "expo-router";
 import { enableScreens } from "react-native-screens";
 import Toast from "react-native-toast-message";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 enableScreens();
 
 export default function RootLayout() {
     return (
-        <>
+        <ThemeProvider>
             <Stack
                 screenOptions={{
                     contentStyle: { backgroundColor: "#0a0a0a" },
@@ -25,6 +26,6 @@ export default function RootLayout() {
                 <Stack.Screen name="tasks" options={{ headerShown: false }} />
             </Stack>
             <Toast />
-        </>
+        </ThemeProvider>
     );
 }

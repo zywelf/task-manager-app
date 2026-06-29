@@ -10,11 +10,14 @@ import {
 import { router } from "expo-router";
 import { login } from "../../services/auth";
 import i18n from "@/i18n";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -59,7 +62,7 @@ export default function Login() {
             <TextInput
                 style={styles.input}
                 placeholder={i18n.t("auth.email")}
-                placeholderTextColor="#a0a0a0"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -68,7 +71,7 @@ export default function Login() {
             <TextInput
                 style={styles.input}
                 placeholder={i18n.t("auth.password")}
-                placeholderTextColor="#a0a0a0"
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -92,54 +95,55 @@ export default function Login() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#0a0a0a",
-        justifyContent: "center",
-        padding: 24,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: "bold",
-        color: "#2DD4BF",
-        marginBottom: 8,
-        textAlign: "center",
-    },
-    subtitle: {
-        fontSize: 16,
-        color: "#a0a0a0",
-        marginBottom: 32,
-        textAlign: "center",
-    },
-    input: {
-        backgroundColor: "#1a1a1a",
-        borderWidth: 1,
-        borderColor: "#2e2e2e",
-        borderRadius: 8,
-        padding: 16,
-        color: "#ededed",
-        marginBottom: 16,
-        fontSize: 16,
-    },
-    button: {
-        backgroundColor: "#2DD4BF",
-        padding: 16,
-        borderRadius: 8,
-        alignItems: "center",
-        marginBottom: 16,
-    },
-    buttonDisabled: {
-        opacity: 0.5,
-    },
-    buttonText: {
-        color: "#0a0a0a",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
-    link: {
-        color: "#2DD4BF",
-        textAlign: "center",
-        fontSize: 14,
-    },
-});
+const getStyles = (colors: { background: string; card: string; border: string; text: string; textMuted: string; teal: string; red: string }) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            padding: 24,
+        },
+        title: {
+            fontSize: 32,
+            fontWeight: "bold",
+            color: colors.teal,
+            marginBottom: 8,
+            textAlign: "center",
+        },
+        subtitle: {
+            fontSize: 16,
+            color: colors.textMuted,
+            marginBottom: 32,
+            textAlign: "center",
+        },
+        input: {
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            padding: 16,
+            color: colors.text,
+            marginBottom: 16,
+            fontSize: 16,
+        },
+        button: {
+            backgroundColor: colors.teal,
+            padding: 16,
+            borderRadius: 8,
+            alignItems: "center",
+            marginBottom: 16,
+        },
+        buttonDisabled: {
+            opacity: 0.5,
+        },
+        buttonText: {
+            color: colors.background,
+            fontWeight: "bold",
+            fontSize: 16,
+        },
+        link: {
+            color: colors.teal,
+            textAlign: "center",
+            fontSize: 14,
+        },
+    });

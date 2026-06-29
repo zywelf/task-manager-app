@@ -1,4 +1,5 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type CustomAlertProps = {
     title: string;
@@ -15,6 +16,9 @@ export default function CustomAlert({
     visible,
     onClose,
 }: CustomAlertProps) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+
     return (
         <Modal
             visible={visible}
@@ -43,42 +47,43 @@ export default function CustomAlert({
     );
 }
 
-const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.7)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 24,
-    },
-    content: {
-        backgroundColor: "#1a1a1a",
-        borderRadius: 16,
-        padding: 24,
-        width: "100%",
-        gap: 12,
-    },
-    title: {
-        color: "#2DD4BF",
-        fontSize: 20,
-        fontWeight: "bold",
-        marginBottom: 8,
-    },
-    message: {
-        color: "#ededed",
-        fontSize: 15,
-        lineHeight: 22,
-    },
-    button: {
-        backgroundColor: "#2DD4BF",
-        padding: 14,
-        borderRadius: 8,
-        alignItems: "center",
-        marginTop: 8,
-    },
-    buttonText: {
-        color: "#0a0a0a",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
-});
+const getStyles = (colors: { background: string; card: string; border: string; text: string; textMuted: string; teal: string; red: string }) =>
+    StyleSheet.create({
+        overlay: {
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 24,
+        },
+        content: {
+            backgroundColor: colors.card,
+            borderRadius: 16,
+            padding: 24,
+            width: "100%",
+            gap: 12,
+        },
+        title: {
+            color: colors.teal,
+            fontSize: 20,
+            fontWeight: "bold",
+            marginBottom: 8,
+        },
+        message: {
+            color: colors.text,
+            fontSize: 15,
+            lineHeight: 22,
+        },
+        button: {
+            backgroundColor: colors.teal,
+            padding: 14,
+            borderRadius: 8,
+            alignItems: "center",
+            marginTop: 8,
+        },
+        buttonText: {
+            color: colors.background,
+            fontWeight: "bold",
+            fontSize: 16,
+        },
+    });
