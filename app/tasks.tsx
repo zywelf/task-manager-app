@@ -15,9 +15,10 @@ import { logout } from "../services/auth";
 import { api } from "../services/api";
 import TaskItem from "@/components/TaskItem";
 import Toast from "react-native-toast-message";
-import { Info } from "lucide-react-native";
 import CustomAlert from "@/components/CustomAlert";
 import i18n from "@/i18n";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Info, Sun, Moon } from "lucide-react-native";
 
 type Task = {
     id: number;
@@ -31,6 +32,8 @@ export default function Tasks() {
     const [newTitle, setNewTitle] = useState("");
     const [newDescription, setNewDescription] = useState("");
     const [showInfo, setShowInfo] = useState(false);
+    const { colors, toggleTheme, theme } = useTheme();
+    const styles = getStyles(colors);
 
     useEffect(() => {
         fetchTasks();
@@ -70,7 +73,9 @@ export default function Tasks() {
             setTasks(tasks.map((t) => (t.id === task.id ? updated : t)));
             Toast.show({
                 type: updated.completed ? "success" : "info",
-                text1: updated.completed ? i18n.t("tasks.toastCompleted") : i18n.t("tasks.toastReopened"),
+                text1: updated.completed
+                    ? i18n.t("tasks.toastCompleted")
+                    : i18n.t("tasks.toastReopened"),
                 visibilityTime: 2000,
                 position: "bottom",
             });
@@ -78,23 +83,27 @@ export default function Tasks() {
     };
 
     const deleteTask = async (id: number) => {
-        Alert.alert(i18n.t("tasks.deleteConfirmTitle"), i18n.t("tasks.deleteConfirmMessage"), [
-            { text: i18n.t("tasks.deleteConfirmCancel"), style: "cancel" },
-            {
-                text: i18n.t("tasks.deleteConfirmDelete"),
-                style: "destructive",
-                onPress: async () => {
-                    await api.delete({ endpoint: `/api/tasks/${id}` });
-                    setTasks(tasks.filter((t) => t.id !== id));
-                    Toast.show({
-                        type: "error",
-                        text1: i18n.t("tasks.toastDelete"),
-                        visibilityTime: 2000,
-                        position: "bottom",
-                    });
+        Alert.alert(
+            i18n.t("tasks.deleteConfirmTitle"),
+            i18n.t("tasks.deleteConfirmMessage"),
+            [
+                { text: i18n.t("tasks.deleteConfirmCancel"), style: "cancel" },
+                {
+                    text: i18n.t("tasks.deleteConfirmDelete"),
+                    style: "destructive",
+                    onPress: async () => {
+                        await api.delete({ endpoint: `/api/tasks/${id}` });
+                        setTasks(tasks.filter((t) => t.id !== id));
+                        Toast.show({
+                            type: "error",
+                            text1: i18n.t("tasks.toastDeleted"),
+                            visibilityTime: 2000,
+                            position: "bottom",
+                        });
+                    },
                 },
-            },
-        ]);
+            ],
+        );
     };
 
     const handleLogout = async () => {
@@ -114,13 +123,20 @@ export default function Tasks() {
                             gap: 16,
                         }}
                     >
-                        <TouchableOpacity
-                            onPress={() => setShowInfo(true)}
-                        >
-                            <Info size={22} color="#a0a0a0" />
+                        <TouchableOpacity onPress={toggleTheme}>
+                            {theme === "dark" ? (
+                                <Sun size={22} color={colors.textMuted} />
+                            ) : (
+                                <Moon size={22} color={colors.textMuted} />
+                            )}
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setShowInfo(true)}>
+                            <Info size={22} color={colors.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleLogout}>
-                            <Text style={styles.logout}>{i18n.t("tasks.logout")}</Text>
+                            <Text style={styles.logout}>
+                                {i18n.t("tasks.logout")}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -129,26 +145,28 @@ export default function Tasks() {
                     <TextInput
                         style={styles.input}
                         placeholder={i18n.t("tasks.titlePlaceholder")}
-                        placeholderTextColor="#a0a0a0"
+                        placeholderTextColor={colors.textMuted}
                         value={newTitle}
                         onChangeText={setNewTitle}
                     />
                     <TextInput
                         style={styles.input}
                         placeholder={i18n.t("tasks.descriptionPlaceholder")}
-                        placeholderTextColor="#a0a0a0"
+                        placeholderTextColor={colors.textMuted}
                         value={newDescription}
                         onChangeText={setNewDescription}
                     />
                     <TouchableOpacity
                         style={[
                             styles.addButton,
-                            !newTitle.trim() && styles.addButtonDisabeld,
+                            !newTitle.trim() && styles.addButtonDisabled,
                         ]}
                         onPress={createTask}
                         disabled={!newTitle.trim()}
                     >
-                        <Text style={styles.addButtonText}>{i18n.t("tasks.addButton")}</Text>
+                        <Text style={styles.addButtonText}>
+                            {i18n.t("tasks.addButton")}
+                        </Text>
                     </TouchableOpacity>
                 </View>
                 <Animated.View>
@@ -175,10 +193,7 @@ export default function Tasks() {
             <CustomAlert
                 visible={showInfo}
                 title={i18n.t("info.title")}
-                message={[
-                    i18n.t("info.swipeRight"),
-                    i18n.t("info.swipeLeft"),
-                ]}
+                message={[i18n.t("info.swipeRight"), i18n.t("info.swipeLeft")]}
                 buttonText={i18n.t("info.button")}
                 onClose={() => setShowInfo(false)}
             />
@@ -186,59 +201,68 @@ export default function Tasks() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#0a0a0a",
-        padding: 24,
-        paddingTop: 60,
-    },
-    header: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 24,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: "bold",
-        color: "#ededed",
-    },
-    logout: {
-        color: "#2DD4BF",
-        fontSize: 16,
-    },
-    input: {
-        backgroundColor: "#1a1a1a",
-        borderWidth: 1,
-        borderColor: "#2e2e2e",
-        borderRadius: 8,
-        padding: 12,
-        color: "#ededed",
-        fontSize: 16,
-    },
-    addButton: {
-        backgroundColor: "#2DD4BF",
-        padding: 14,
-        borderRadius: 8,
-        alignItems: "center",
-    },
-    addButtonText: {
-        color: "#0a0a0a",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
-    emptyText: {
-        color: "#a0a0a0",
-        textAlign: "center",
-        marginTop: 48,
-        fontSize: 16,
-    },
-    inputContainer: {
-        marginBottom: 24,
-        gap: 8,
-    },
-    addButtonDisabeld: {
-        opacity: 0.4,
-    },
-});
+const getStyles = (colors: {
+    background: string;
+    card: string;
+    border: string;
+    text: string;
+    textMuted: string;
+    teal: string;
+    red: string;
+}) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+            padding: 24,
+            paddingTop: 60,
+        },
+        header: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 24,
+        },
+        title: {
+            fontSize: 28,
+            fontWeight: "bold",
+            color: colors.text,
+        },
+        logout: {
+            color: colors.teal,
+            fontSize: 16,
+        },
+        input: {
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            padding: 12,
+            color: colors.text,
+            fontSize: 16,
+        },
+        addButton: {
+            backgroundColor: colors.teal,
+            padding: 14,
+            borderRadius: 8,
+            alignItems: "center",
+        },
+        addButtonText: {
+            color: colors.background,
+            fontWeight: "bold",
+            fontSize: 16,
+        },
+        emptyText: {
+            color: colors.textMuted,
+            textAlign: "center",
+            marginTop: 48,
+            fontSize: 16,
+        },
+        inputContainer: {
+            marginBottom: 24,
+            gap: 8,
+        },
+        addButtonDisabled: {
+            opacity: 0.4,
+        },
+    });
