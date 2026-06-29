@@ -1,6 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.1.128:3000"; // Android emulator
+interface RequestOption {
+    endpoint: string;
+    body?: object;
+    auth?: boolean;
+}
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL; // Android emulator
 //  const BASE_URL = "http://localhost:3000";   // Web
 
 export const getAuthHeaders = async () => {
@@ -12,7 +18,7 @@ export const getAuthHeaders = async () => {
 };
 
 export const api = {
-    post: async (endpoint: string, body: object, auth = false) => {
+    post: async ({ endpoint, body, auth = false }: RequestOption) => {
         const headers = auth
             ? await getAuthHeaders()
             : { "Content-type": "application/json" };
@@ -26,7 +32,7 @@ export const api = {
         return response.json();
     },
 
-    get: async (endpoint: string) => {
+    get: async ({ endpoint }: RequestOption) => {
         const headers = await getAuthHeaders();
 
         const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -36,7 +42,7 @@ export const api = {
 
         return response.json();
     },
-    put: async (endpoint: string, body: object) => {
+    put: async ({ endpoint, body }: RequestOption) => {
         const headers = await getAuthHeaders();
 
         const response = await fetch(`${BASE_URL}${endpoint}`, {
@@ -47,7 +53,7 @@ export const api = {
 
         return response.json();
     },
-    delete: async (endpoint: string) => {
+    delete: async ({ endpoint }: RequestOption) => {
         const headers = await getAuthHeaders();
 
         const response = await fetch(`${BASE_URL}${endpoint}`, {

@@ -23,7 +23,7 @@ export default function Login() {
 
         setIsLoading(true);
         try {
-            const data = await login(email, password);
+            const data = await login({ email, password });
 
             if (data.token) {
                 router.replace("/tasks");

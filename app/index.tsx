@@ -25,7 +25,7 @@ export default function Index() {
                 alignItems: "center",
             }}
         >
-          <ActivityIndicator size="large" color="#2DD4BF" />
+            <ActivityIndicator size="large" color="#2DD4BF" />
         </View>
     );
 }
