@@ -15,6 +15,8 @@ import { logout } from "../services/auth";
 import { api } from "../services/api";
 import TaskItem from "@/components/TaskItem";
 import Toast from "react-native-toast-message";
+import { Info } from "lucide-react-native";
+import CustomAlert from "@/components/CustomAlert";
 
 type Task = {
     id: number;
@@ -27,6 +29,7 @@ export default function Tasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [newTitle, setNewTitle] = useState("");
     const [newDescription, setNewDescription] = useState("");
+    const [showInfo, setShowInfo] = useState(false);
 
     useEffect(() => {
         fetchTasks();
@@ -68,8 +71,8 @@ export default function Tasks() {
                 type: updated.completed ? "success" : "info",
                 text1: updated.completed ? "Task completata!" : "Task riaperta",
                 visibilityTime: 2000,
-                position: "bottom"
-            })
+                position: "bottom",
+            });
         }
     };
 
@@ -86,8 +89,8 @@ export default function Tasks() {
                         type: "error",
                         text1: "Task eliminato",
                         visibilityTime: 2000,
-                        position: "bottom"
-                    })
+                        position: "bottom",
+                    });
                 },
             },
         ]);
@@ -103,9 +106,22 @@ export default function Tasks() {
             <View style={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.title}>I miei task</Text>
-                    <TouchableOpacity onPress={handleLogout}>
-                        <Text style={styles.logout}>Esci</Text>
-                    </TouchableOpacity>
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 16,
+                        }}
+                    >
+                        <TouchableOpacity
+                            onPress={() => setShowInfo(true)}
+                        >
+                            <Info size={22} color="#a0a0a0" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleLogout}>
+                            <Text style={styles.logout}>Esci</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -155,6 +171,16 @@ export default function Tasks() {
                     />
                 </Animated.View>
             </View>
+            <CustomAlert
+                visible={showInfo}
+                title="Come funziona"
+                message={[
+                    "👈 Scorri a destra per completare o riaprire un task.",
+                    "👉 Scorri a sinistra per eliminarlo.",
+                ]}
+                buttonText="Ho capito!"
+                onClose={() => setShowInfo(false)}
+            />
         </GestureHandlerRootView>
     );
 }
