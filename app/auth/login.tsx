@@ -26,7 +26,7 @@ export default function Login() {
             const data = await login({ email, password });
 
             if (data.token) {
-                router.replace("/tasks");
+                router.push("/tasks");
             } else if (data.errors) {
                 const messages = data.errors
                     .map((e: { message: string }) => e.message)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, { FadeIn, SlideInLeft } from "react-native-reanimated";
 import { router } from "expo-router";
 import { logout } from "../services/auth";
 import { api } from "../services/api";
+import TaskItem from "@/components/TaskItem";
 
 type Task = {
     id: number;
@@ -25,6 +27,7 @@ export default function Tasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [newTitle, setNewTitle] = useState("");
     const [newDescription, setNewDescription] = useState("");
+    const swipeableRefs = useRef<{ [key: number]: any }>({});
 
     useEffect(() => {
         fetchTasks();
@@ -120,73 +123,26 @@ export default function Tasks() {
                         <Text style={styles.addButtonText}>Aggiungi task</Text>
                     </TouchableOpacity>
                 </View>
-
-                <FlatList
-                    data={tasks}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => (
-                        <ReanimatedSwipeable
-                            onSwipeableOpen={(direction) => {
-                                if (direction === "right") toggleTask(item);
-                                if (direction === "left") deleteTask(item.id);
-                            }}
-                            renderLeftActions={() => (
-                                <View style={styles.completeAction}>
-                                    <Text style={styles.completeActionText}>
-                                        {item.completed
-                                            ? "↩ Riapri"
-                                            : "✓ Completa"}
-                                    </Text>
-                                </View>
-                            )}
-                            renderRightActions={() => (
-                                <View style={styles.deleteAction}>
-                                    <Text style={styles.deleteActionText}>
-                                        🗑 Elimina
-                                    </Text>
-                                </View>
-                            )}
-                        >
-                            <View style={styles.taskItem}>
-                                <TouchableOpacity
-                                    style={styles.taskLeft}
-                                    onPress={() => toggleTask(item)}
-                                >
-                                    <View
-                                        style={[
-                                            styles.checkbox,
-                                            item.completed &&
-                                                styles.checkboxDone,
-                                        ]}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                        <Text
-                                            style={[
-                                                styles.taskTitle,
-                                                item.completed &&
-                                                    styles.taskTitleDone,
-                                            ]}
-                                        >
-                                            {item.title}
-                                        </Text>
-                                        {item.description && (
-                                            <Text
-                                                style={styles.taskDescription}
-                                            >
-                                                {item.description}
-                                            </Text>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-                        </ReanimatedSwipeable>
-                    )}
-                    ListEmptyComponent={
-                        <Text style={styles.emptyText}>
-                            Nessun task. Aggiungine uno!
-                        </Text>
-                    }
-                />
+                <Animated.View>
+                    <FlatList
+                        data={tasks}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={({ item, index }) => (
+                            <Animated.View entering={FadeIn.delay(index * 100)}>
+                                <TaskItem
+                                    item={item}
+                                    toggleTask={toggleTask}
+                                    deleteTask={deleteTask}
+                                />
+                            </Animated.View>
+                        )}
+                        ListEmptyComponent={
+                            <Text style={styles.emptyText}>
+                                Nessun task. Aggiungine uno!
+                            </Text>
+                        }
+                    />
+                </Animated.View>
             </View>
         </GestureHandlerRootView>
     );
@@ -234,40 +190,6 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         fontSize: 16,
     },
-    taskItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#1a1a1a",
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 8,
-    },
-    taskLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    checkbox: {
-        width: 20,
-        height: 20,
-        borderRadius: 4,
-        borderWidth: 2,
-        borderColor: "#2DD4BF",
-        marginRight: 12,
-    },
-    checkboxDone: {
-        backgroundColor: "#2DD4BF",
-    },
-    taskTitle: {
-        color: "#ededed",
-        fontSize: 16,
-        flex: 1,
-    },
-    taskTitleDone: {
-        textDecorationLine: "line-through",
-        color: "#a0a0a0",
-    },
     emptyText: {
         color: "#a0a0a0",
         textAlign: "center",
@@ -280,34 +202,5 @@ const styles = StyleSheet.create({
     },
     addButtonDisabeld: {
         opacity: 0.4,
-    },
-    taskDescription: {
-        color: "#a0a0a0",
-        fontSize: 13,
-        marginTop: 2,
-    },
-    deleteAction: {
-        backgroundColor: "#dc2626",
-        justifyContent: "center",
-        alignItems: "center",
-        width: 100,
-        marginBottom: 8,
-    },
-    deleteActionText: {
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: 14,
-    },
-    completeAction: {
-        backgroundColor: "#2DD4BF",
-        justifyContent: "center",
-        alignItems: "center",
-        width: 100,
-        marginBottom: 8,
-    },
-    completeActionText: {
-        color: "#0a0a0a",
-        fontWeight: "bold",
-        fontSize: 14,
     },
 });
