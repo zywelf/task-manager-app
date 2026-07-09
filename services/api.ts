@@ -17,7 +17,28 @@ export const getAuthHeaders = async () => {
   }
 }
 
+const request = async (method: string, { endpoint, body, auth = true }: RequestOption) => {
+  const headers = auth ? await getAuthHeaders() : { 'Content-Type': 'application/json' }
+
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+
+  return response.json()
+}
+
 export const api = {
+  get: (options: RequestOption) => request('GET', options),
+  post: (options: RequestOption) => request('POST', options),
+  put: (options: RequestOption) => request('PUT', options),
+  delete: (options: RequestOption) => request('DELETE', options),
+}
+
+/* export const api = {
   post: async ({ endpoint, body, auth = false }: RequestOption) => {
     const headers = auth ? await getAuthHeaders() : { 'Content-type': 'application/json' }
 
@@ -62,3 +83,4 @@ export const api = {
     return response.json()
   },
 }
+ */

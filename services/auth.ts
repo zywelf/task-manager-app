@@ -13,6 +13,7 @@ export const register = async ({ name, email, password }: RegisterInfo) => {
   const data = await api.post({
     endpoint: '/api/auth/register',
     body: { name, email, password },
+    auth: false,
   })
   return data
 }
@@ -21,6 +22,7 @@ export const login = async ({ email, password }: LoginInfo) => {
   const data = await api.post({
     endpoint: '/api/auth/login',
     body: { email, password },
+    auth: false,
   })
 
   if (data.token) {
