@@ -13,6 +13,9 @@ export default {
     toastCompleted: 'Task completato!',
     toastReopened: 'Task riaperto',
     toastDeleted: 'Task eliminato',
+    loading: "Caricamento...",
+    error: "Errore nel caricamento dei task",
+    toastError: "Qualcosa è andato storto. Riprova."
   },
   info: {
     title: 'Come funziona',

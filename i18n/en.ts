@@ -13,6 +13,9 @@ export default {
     toastCompleted: 'Task completed!',
     toastReopened: 'Task reopened',
     toastDeleted: 'Task deleted',
+    loading: "Loading...",
+    error: "Error loading tasks",
+    toastError: "Something went wrong. Please try again."
   },
   info: {
     title: 'How it works',

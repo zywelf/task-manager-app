@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, TextInput } from 'react-native'
+import { useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput, Keyboard } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { router } from 'expo-router'
@@ -11,6 +11,7 @@ import CustomAlert from '@/components/CustomAlert'
 import i18n from '@/i18n'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Info, Sun, Moon } from 'lucide-react-native'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 type Task = {
   id: number
@@ -20,77 +21,98 @@ type Task = {
 }
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>([])
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [showInfo, setShowInfo] = useState(false)
   const { colors, toggleTheme, theme } = useTheme()
   const styles = getStyles(colors)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    fetchTasks()
-  }, [])
+  const {
+    data: tasks = [],
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => api.get({ endpoint: '/api/tasks' }),
+  })
 
-  const fetchTasks = async () => {
-    const data = await api.get({ endpoint: '/api/tasks' })
-    if (Array.isArray(data)) setTasks(data)
-  }
-
-  const createTask = async () => {
-    if (!newTitle.trim()) return
-
-    const task = await api.post({
-      endpoint: '/api/tasks',
-      body: {
-        title: newTitle,
-        description: newDescription.trim() || undefined,
-      },
-      auth: true,
-    })
-    if (task.id) {
-      setTasks([...tasks, task])
-      setNewTitle('')
-      setNewDescription('')
-    }
-  }
-
-  const toggleTask = async (task: Task) => {
-    const updated = await api.put({
-      endpoint: `/api/tasks/${task.id}`,
-      body: {
-        completed: !task.completed,
-      },
-    })
-    if (updated.id) {
-      setTasks(tasks.map((t) => (t.id === task.id ? updated : t)))
+  const toggleMutation = useMutation({
+    mutationFn: (task: Task) =>
+      api.put({ endpoint: `/api/tasks/${task.id}`, body: { completed: !task.completed } }),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       Toast.show({
         type: updated.completed ? 'success' : 'info',
         text1: updated.completed ? i18n.t('tasks.toastCompleted') : i18n.t('tasks.toastReopened'),
         visibilityTime: 2000,
         position: 'bottom',
       })
-    }
+    },
+    onError: () => {
+      Toast.show({
+        type: 'error',
+        text1: i18n.t('tasks.toastError'),
+        visibilityTime: 2000,
+        position: 'bottom',
+      })
+    },
+  })
+
+  const toggleTask = (task: Task) => toggleMutation.mutate(task)
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      api.post({
+        endpoint: '/api/tasks',
+        body: {
+          title: newTitle,
+          description: newDescription.trim() || undefined,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      setNewTitle('')
+      setNewDescription('')
+    },
+    onError: () => {
+      Toast.show({
+        type: 'error',
+        text1: i18n.t('tasks.toastError'),
+        visibilityTime: 2000,
+        position: 'bottom',
+      })
+    },
+  })
+
+  const createTask = () => {
+    if (!newTitle.trim()) return
+    Keyboard.dismiss()
+    createMutation.mutate()
   }
 
-  const deleteTask = async (id: number) => {
-    Alert.alert(i18n.t('tasks.deleteConfirmTitle'), i18n.t('tasks.deleteConfirmMessage'), [
-      { text: i18n.t('tasks.deleteConfirmCancel'), style: 'cancel' },
-      {
-        text: i18n.t('tasks.deleteConfirmDelete'),
-        style: 'destructive',
-        onPress: async () => {
-          await api.delete({ endpoint: `/api/tasks/${id}` })
-          setTasks(tasks.filter((t) => t.id !== id))
-          Toast.show({
-            type: 'error',
-            text1: i18n.t('tasks.toastDeleted'),
-            visibilityTime: 2000,
-            position: 'bottom',
-          })
-        },
-      },
-    ])
-  }
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete({ endpoint: `/api/tasks/${id}` }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      Toast.show({
+        type: 'error',
+        text1: i18n.t('tasks.toastDeleted'),
+        visibilityTime: 2000,
+        position: 'bottom',
+      })
+    },
+    onError: () => {
+      Toast.show({
+        type: 'error',
+        text1: i18n.t('tasks.toastError'),
+        visibilityTime: 2000,
+        position: 'bottom',
+      })
+    },
+  })
+
+  const deleteTask = (id: number) => deleteMutation.mutate(id)
 
   const handleLogout = async () => {
     await logout()
@@ -148,18 +170,24 @@ export default function Tasks() {
             <Text style={styles.addButtonText}>{i18n.t('tasks.addButton')}</Text>
           </TouchableOpacity>
         </View>
-        <Animated.View>
-          <FlatList
-            data={tasks}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item, index }) => (
-              <Animated.View entering={FadeIn.delay(index * 100)}>
-                <TaskItem item={item} toggleTask={toggleTask} deleteTask={deleteTask} />
-              </Animated.View>
-            )}
-            ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('tasks.empty')}</Text>}
-          />
-        </Animated.View>
+        {isPending ? (
+          <Text style={styles.emptyText}>{i18n.t('tasks.loading')}</Text>
+        ) : error ? (
+          <Text style={styles.emptyText}>{i18n.t('tasks.error')}</Text>
+        ) : (
+          <Animated.View>
+            <FlatList
+              data={tasks}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item, index }) => (
+                <Animated.View entering={FadeIn.delay(index * 100)}>
+                  <TaskItem item={item} toggleTask={toggleTask} deleteTask={deleteTask} />
+                </Animated.View>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('tasks.empty')}</Text>}
+            />
+          </Animated.View>
+        )}
       </View>
       <CustomAlert
         visible={showInfo}
