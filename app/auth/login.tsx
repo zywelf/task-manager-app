@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { router } from 'expo-router'
 import { login } from '../../services/auth'
+import { ApiError } from '../../services/api'
 import i18n from '@/i18n'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -24,14 +25,16 @@ export default function Login() {
 
       if (data.token) {
         router.push('/tasks')
-      } else if (data.errors) {
-        const messages = data.errors.map((e: { message: string }) => e.message).join('\n')
-        Alert.alert(i18n.t('auth.errorValidation'), messages)
-      } else {
-        Alert.alert(i18n.t('auth.errorTitle'), data.message || i18n.t('auth.errorLogin'))
       }
-    } catch {
-      Alert.alert(i18n.t('auth.errorTitle'), i18n.t('auth.errorConnection'))
+    } catch (error) {
+      if (error instanceof ApiError && error.errors) {
+        const messages = error.errors.map((e) => e.message).join('\n')
+        Alert.alert(i18n.t('auth.errorValidation'), messages)
+      } else if (error instanceof ApiError) {
+        Alert.alert(i18n.t('auth.errorTitle'), error.message || i18n.t('auth.errorLogin'))
+      } else {
+        Alert.alert(i18n.t('auth.errorTitle'), i18n.t('auth.errorConnection'))
+      }
     } finally {
       setIsLoading(false)
     }

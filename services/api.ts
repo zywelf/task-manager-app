@@ -17,6 +17,20 @@ export const getAuthHeaders = async () => {
   }
 }
 
+// The server answered with an error status (4xx/5xx).
+// A network error (no answer at all) is thrown by fetch itself and is NOT an ApiError.
+export class ApiError extends Error {
+  status: number
+  errors?: { message: string }[] // Zod validation errors from the backend
+
+  constructor(status: number, message: string, errors?: { message: string }[]) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.errors = errors
+  }
+}
+
 const request = async (method: string, { endpoint, body, auth = true }: RequestOption) => {
   const headers = auth ? await getAuthHeaders() : { 'Content-Type': 'application/json' }
 
@@ -26,7 +40,11 @@ const request = async (method: string, { endpoint, body, auth = true }: RequestO
     body: body ? JSON.stringify(body) : undefined,
   })
 
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+  if (!response.ok) {
+    // The body explains why: { message } or { errors: [...] } from Zod
+    const data = await response.json().catch(() => null)
+    throw new ApiError(response.status, data?.message ?? '', data?.errors)
+  }
 
   return response.json()
 }
