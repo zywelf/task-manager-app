@@ -28,8 +28,22 @@ A React Native mobile app for task management built with Expo, TypeScript and ex
 
 ## Prerequisites
 
-- [Task Manager API](https://github.com/zywelf/task-manager-api) running locally
-- [Expo Go](https://expo.dev/go) installed on your device
+- [Task Manager API](https://github.com/zywelf/task-manager-api) running locally (see its README for the `.env` and Docker setup)
+- **Expo Go for SDK 54** on your phone (see below)
+- Phone and computer on the same Wi-Fi network
+
+### Expo Go version
+
+This project uses **Expo SDK 54**. The latest Expo Go from the stores only supports the newest SDK, and opening the project shows:
+
+```
+Project is incompatible with this version of Expo Go
+```
+
+Install the SDK 54 build instead:
+
+- **Android:** download and install the APK from https://expo.dev/go?sdkVersion=54&platform=android&device=true (uninstall the store version first if it conflicts). Turn off auto-update for Expo Go in the Play Store, or it will be replaced by the newest version.
+- **iOS:** older Expo Go versions cannot be installed from the App Store; use a [development build](https://docs.expo.dev/develop/development-builds/introduction/) or an iOS simulator.
 
 ## Getting Started
 
@@ -39,13 +53,24 @@ cd task-manager-app
 npm install
 ```
 
-Create a `.env` file:
-EXPO_PUBLIC_API_URL=http://your-local-ip:3000
+Create a `.env` file in the project root:
 
-Start the app:
+```env
+EXPO_PUBLIC_API_URL=http://your-local-ip:3000
+```
+
+`your-local-ip` is the local network IP of the computer running the API, not `localhost` (the phone cannot reach the computer through `localhost`). Find it with:
+
+- Linux: `ip addr` (look at `wlan0`/`eth0`)
+- macOS: `ipconfig getifaddr en0`
+- Windows: `ipconfig` (IPv4 Address)
+
+`.env` is git-ignored: every computer needs its own, because each machine has a different IP. The IP can also change after reconnecting to Wi-Fi; if the app shows "Unable to connect to server", check it again.
+
+Start the app (`-c` clears the cache, needed after changing `.env`):
 
 ```bash
-npx expo start
+npx expo start -c
 ```
 
 Scan the QR code with Expo Go on your device.
