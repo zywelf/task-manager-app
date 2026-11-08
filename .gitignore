@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# design handoff files
+First mobile app design/

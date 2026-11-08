@@ -1,82 +1,110 @@
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { Modal, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/contexts/ThemeContext'
+import { fonts, shadow } from '@/constants/fonts'
+import { PrimaryButton, SecondaryButton } from '@/components/ui'
+import i18n from '@/i18n'
 
 type CustomAlertProps = {
-  title: string
-  message: string[]
-  buttonText: string
   visible: boolean
   onClose: () => void
+  onReplayTutorial: () => void
 }
 
-export default function CustomAlert({ title, message, buttonText, visible, onClose }: CustomAlertProps) {
+/** "How it works" dialog */
+export default function CustomAlert({ visible, onClose, onReplayTutorial }: CustomAlertProps) {
   const { colors } = useTheme()
-  const styles = getStyles(colors)
+
+  const lines = [i18n.t('info.swipeRight'), i18n.t('info.swipeLeft'), i18n.t('info.tapTask')]
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-        <View style={styles.content}>
-          <Text style={styles.title}>{title}</Text>
-          {message.map((msg, index) => (
-            <Text key={index} style={styles.message}>
-              {msg}
-            </Text>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        {/* Swallow taps on the card so they don't close the dialog */}
+        <Pressable style={[styles.card, { backgroundColor: colors.background }]} onPress={() => {}}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.text }]}>{i18n.t('info.title')}</Text>
+          </View>
+
+          {lines.map((line, index) => (
+            <View key={index} style={[styles.line, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.number, { color: colors.teal }]}>
+                {String(index + 1).padStart(2, '0')}
+              </Text>
+              <Text style={[styles.lineText, { color: colors.text }]}>{line}</Text>
+            </View>
           ))}
-          <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>{buttonText}</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+
+          <View style={styles.buttons}>
+            <SecondaryButton
+              label={i18n.t('info.replay')}
+              onPress={onReplayTutorial}
+              height={50}
+              style={styles.button}
+            />
+            <PrimaryButton
+              label={i18n.t('info.button')}
+              onPress={onClose}
+              height={50}
+              style={styles.button}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   )
 }
 
-const getStyles = (colors: {
-  background: string
-  card: string
-  border: string
-  text: string
-  textMuted: string
-  teal: string
-  red: string
-}) =>
-  StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    content: {
-      backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 24,
-      width: '100%',
-      gap: 12,
-    },
-    title: {
-      color: colors.teal,
-      fontSize: 20,
-      fontWeight: 'bold',
-      marginBottom: 8,
-    },
-    message: {
-      color: colors.text,
-      fontSize: 15,
-      lineHeight: 22,
-    },
-    button: {
-      backgroundColor: colors.teal,
-      padding: 14,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    buttonText: {
-      color: colors.background,
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-  })
+const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(32,30,29,0.55)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...shadow,
+    shadowOpacity: 0.22,
+  },
+  header: {
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 2,
+  },
+  title: {
+    fontFamily: fonts.extrabold,
+    fontSize: 24,
+  },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+  },
+  number: {
+    width: 44,
+    fontFamily: fonts.extrabold,
+    fontSize: 13,
+    lineHeight: 22,
+  },
+  lineText: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  buttons: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  button: {
+    flex: 1,
+    paddingHorizontal: 14,
+  },
+})

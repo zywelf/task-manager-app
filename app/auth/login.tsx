@@ -1,138 +1,97 @@
-import { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
-import { router } from 'expo-router'
-import { login } from '../../services/auth'
-import { ApiError } from '../../services/api'
-import i18n from '@/i18n'
+import { useEffect, useState } from 'react'
+import { router, useLocalSearchParams } from 'expo-router'
+import { ArrowRight } from 'lucide-react-native'
+import { getAuthErrorMessage, login } from '@/services/auth'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useTutorial } from '@/contexts/TutorialContext'
+import AuthLayout from '@/components/AuthLayout'
+import { Field, PrimaryButton } from '@/components/ui'
+import i18n from '@/i18n'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const params = useLocalSearchParams<{
+    email?: string
+    registered?: string
+  }>()
+  const [email, setEmail] = useState(params.email ?? '')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
   const { colors } = useTheme()
-  const styles = getStyles(colors)
+  const tutorial = useTutorial()
+
+  // Coming back from Register with a prefilled email
+  useEffect(() => {
+    if (params.email) {
+      setEmail(params.email)
+      setPassword('')
+      setError('')
+    }
+  }, [params.email, params.registered])
 
   const handleLogin = async () => {
+    if (isLoading) return
     if (!email || !password) {
-      Alert.alert(i18n.t('auth.errorTitle'), i18n.t('auth.errorEmailPassword'))
+      setError(i18n.t('auth.errorEmailPassword'))
       return
     }
 
+    setError('')
     setIsLoading(true)
     try {
       const data = await login({ email, password })
 
       if (data.token) {
-        router.push('/tasks')
+        await tutorial.startIfFirstTime()
+        router.replace('/tasks')
       }
-    } catch (error) {
-      if (error instanceof ApiError && error.errors) {
-        const messages = error.errors.map((e) => e.message).join('\n')
-        Alert.alert(i18n.t('auth.errorValidation'), messages)
-      } else if (error instanceof ApiError) {
-        Alert.alert(i18n.t('auth.errorTitle'), error.message || i18n.t('auth.errorLogin'))
-      } else {
-        Alert.alert(i18n.t('auth.errorTitle'), i18n.t('auth.errorConnection'))
-      }
+    } catch (err) {
+      setError(getAuthErrorMessage(err, i18n.t('auth.errorLogin')))
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{i18n.t('auth.loginTitle')}</Text>
-      <Text style={styles.subtitle}>{i18n.t('auth.loginSubtitle')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={i18n.t('auth.email')}
-        placeholderTextColor={colors.textMuted}
+    <AuthLayout
+      title={i18n.t('auth.loginTitle')}
+      notice={params.registered === '1' ? i18n.t('auth.successRegister') : undefined}
+      error={error}
+      footerText={i18n.t('auth.noAccount')}
+      footerLink={i18n.t('auth.register')}
+      onFooterPress={() => router.push('/auth/register')}
+      button={
+        <PrimaryButton
+          label={isLoading ? i18n.t('auth.loggingIn') : i18n.t('auth.login')}
+          icon={<ArrowRight size={20} color={colors.onTeal} />}
+          onPress={handleLogin}
+          disabled={isLoading}
+          disabledOpacity={0.6}
+        />
+      }
+    >
+      <Field
+        label={i18n.t('auth.email')}
         value={email}
-        onChangeText={setEmail}
+        onChangeText={v => {
+          setEmail(v)
+          setError('')
+        }}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoComplete="email"
       />
-      <TextInput
-        style={styles.input}
-        placeholder={i18n.t('auth.password')}
-        placeholderTextColor={colors.textMuted}
+      <Field
+        label={i18n.t('auth.password')}
         value={password}
-        onChangeText={setPassword}
+        onChangeText={v => {
+          setPassword(v)
+          setError('')
+        }}
         secureTextEntry
+        returnKeyType="go"
+        onSubmitEditing={handleLogin}
       />
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>{isLoading ? i18n.t('auth.loggingIn') : i18n.t('auth.login')}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => router.push('/auth/register')}>
-        <Text style={styles.link}>{i18n.t('auth.noAccount')}</Text>
-      </TouchableOpacity>
-    </View>
+    </AuthLayout>
   )
 }
-
-const getStyles = (colors: {
-  background: string
-  card: string
-  border: string
-  text: string
-  textMuted: string
-  teal: string
-  red: string
-}) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-      justifyContent: 'center',
-      padding: 24,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: colors.teal,
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-    subtitle: {
-      fontSize: 16,
-      color: colors.textMuted,
-      marginBottom: 32,
-      textAlign: 'center',
-    },
-    input: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      padding: 16,
-      color: colors.text,
-      marginBottom: 16,
-      fontSize: 16,
-    },
-    button: {
-      backgroundColor: colors.teal,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    buttonDisabled: {
-      opacity: 0.5,
-    },
-    buttonText: {
-      color: colors.background,
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-    link: {
-      color: colors.teal,
-      textAlign: 'center',
-      fontSize: 14,
-    },
-  })

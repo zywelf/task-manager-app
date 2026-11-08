@@ -1,267 +1,428 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput, Keyboard } from 'react-native'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import Animated, { FadeIn } from 'react-native-reanimated'
+import { useEffect, useMemo, useState } from 'react'
+import { View, Text, Pressable, StyleSheet, FlatList, TextInput, Keyboard } from 'react-native'
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
-import { logout } from '../services/auth'
-import { api } from '../services/api'
+import { Info, LogOut, Moon, Plus, Search, Sun } from 'lucide-react-native'
+import { logout } from '@/services/auth'
+import { queryClient } from '@/services/queryClient'
+import { Task, useTasks } from '@/hooks/useTasks'
+import { useTheme, Colors } from '@/contexts/ThemeContext'
+import { useTutorial } from '@/contexts/TutorialContext'
+import { fonts } from '@/constants/fonts'
 import TaskItem from '@/components/TaskItem'
-import Toast from 'react-native-toast-message'
 import CustomAlert from '@/components/CustomAlert'
+import AddTaskSheet from '@/components/AddTaskSheet'
+import CoachCard from '@/components/CoachCard'
 import i18n from '@/i18n'
-import { useTheme } from '@/contexts/ThemeContext'
-import { Info, Sun, Moon } from 'lucide-react-native'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-type Task = {
-  id: number
-  title: string
-  description?: string
-  completed: boolean
-}
+type Filter = 'all' | 'active' | 'completed'
 
 export default function Tasks() {
+  const [filter, setFilter] = useState<Filter>('all')
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [showInfo, setShowInfo] = useState(false)
+
   const { colors, toggleTheme, theme } = useTheme()
-  const styles = getStyles(colors)
-  const queryClient = useQueryClient()
+  const tutorial = useTutorial()
+  const insets = useSafeAreaInsets()
+  const styles = useMemo(() => getStyles(colors), [colors])
+  const { tasks, isPending, error, isSaved, toggleTask, createTask, deleteTask } = useTasks()
 
-  const {
-    data: tasks = [],
-    isPending,
-    error,
-  } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => api.get({ endpoint: '/api/tasks' }),
-  })
+  // Derived values
+  const total = tasks.length
+  const done = tasks.filter(t => t.completed).length
+  const active = total - done
+  const pct = total ? Math.round((done / total) * 100) : 0
+  const q = query.trim().toLowerCase()
+  const visible = tasks.filter(
+    t =>
+      (filter === 'all' || (filter === 'active' ? !t.completed : t.completed)) &&
+      (!q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q)),
+  )
 
-  const toggleMutation = useMutation({
-    mutationFn: (task: Task) =>
-      api.put({ endpoint: `/api/tasks/${task.id}`, body: { completed: !task.completed } }),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      Toast.show({
-        type: updated.completed ? 'success' : 'info',
-        text1: updated.completed ? i18n.t('tasks.toastCompleted') : i18n.t('tasks.toastReopened'),
-        visibilityTime: 2000,
-        position: 'bottom',
-      })
-    },
-    onError: () => {
-      Toast.show({
-        type: 'error',
-        text1: i18n.t('tasks.toastError'),
-        visibilityTime: 2000,
-        position: 'bottom',
-      })
-    },
-  })
+  // Progress bar width animates over 400ms
+  const trackWidth = useSharedValue(0)
+  const pctValue = useSharedValue(pct)
+  useEffect(() => {
+    pctValue.value = withTiming(pct, { duration: 400 })
+  }, [pct, pctValue])
+  const fillStyle = useAnimatedStyle(() => ({
+    width: (trackWidth.value * pctValue.value) / 100,
+  }))
 
-  const toggleTask = (task: Task) => toggleMutation.mutate(task)
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      api.post({
-        endpoint: '/api/tasks',
-        body: {
-          title: newTitle,
-          description: newDescription.trim() || undefined,
-        },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      setNewTitle('')
-      setNewDescription('')
-    },
-    onError: () => {
-      Toast.show({
-        type: 'error',
-        text1: i18n.t('tasks.toastError'),
-        visibilityTime: 2000,
-        position: 'bottom',
-      })
-    },
-  })
-
-  const createTask = () => {
-    if (!newTitle.trim()) return
-    Keyboard.dismiss()
-    createMutation.mutate()
+  const toggleSearch = () => {
+    if (searchOpen) setQuery('')
+    setSearchOpen(!searchOpen)
   }
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete({ endpoint: `/api/tasks/${id}` }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      Toast.show({
-        type: 'error',
-        text1: i18n.t('tasks.toastDeleted'),
-        visibilityTime: 2000,
-        position: 'bottom',
-      })
-    },
-    onError: () => {
-      Toast.show({
-        type: 'error',
-        text1: i18n.t('tasks.toastError'),
-        visibilityTime: 2000,
-        position: 'bottom',
-      })
-    },
-  })
+  const openSheet = () => {
+    tutorial.onSheetOpened()
+    setSheetOpen(true)
+  }
 
-  const deleteTask = (id: number) => deleteMutation.mutate(id)
+  const addTask = () => {
+    const title = newTitle.trim()
+    if (!title) return
+    Keyboard.dismiss()
+    createTask(title, newDescription.trim())
+    setSheetOpen(false)
+    setNewTitle('')
+    setNewDescription('')
+    if (filter === 'completed') setFilter('all')
+    setQuery('')
+  }
+
+  const replayTutorial = () => {
+    setShowInfo(false)
+    setFilter('all')
+    setQuery('')
+    tutorial.replay()
+  }
 
   const handleLogout = async () => {
     await logout()
-    router.push('/auth/login')
+    tutorial.reset()
+    queryClient.clear()
+    router.replace('/auth/login')
   }
 
+  const openDetails = (task: Task) => {
+    if (!isSaved(task)) return
+    router.push({ pathname: '/task/[id]', params: { id: String(task.id) } })
+  }
+
+  const filters: { key: Filter; label: string; count: number }[] = [
+    { key: 'all', label: i18n.t('tasks.filterAll'), count: total },
+    { key: 'active', label: i18n.t('tasks.filterActive'), count: active },
+    { key: 'completed', label: i18n.t('tasks.filterCompleted'), count: done },
+  ]
+
+  const empty = q
+    ? {
+        title: i18n.t('tasks.noMatchesTitle'),
+        body: i18n.t('tasks.noMatchesBody', { query: query.trim() }),
+      }
+    : total === 0
+      ? { title: i18n.t('tasks.emptyTitle'), body: i18n.t('tasks.emptyBody') }
+      : {
+          title: filter === 'active' ? i18n.t('tasks.emptyActiveTitle') : i18n.t('tasks.emptyCompletedTitle'),
+          body: i18n.t('tasks.emptyFilterBody'),
+        }
+
+  const barBottom = 26 + insets.bottom
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{i18n.t('tasks.title')}</Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 16,
-            }}
-          >
-            <TouchableOpacity onPress={toggleTheme}>
+    <View style={styles.container}>
+      {/* Content on the teal header follows onTeal */}
+      <StatusBar style={theme === 'dark' ? 'dark' : 'light'} />
+
+      {/* a. Teal header field */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerTop}>
+          <Text style={styles.kicker}>{i18n.t('tasks.title')}</Text>
+          <View style={styles.headerIcons}>
+            <Pressable style={styles.iconButton} onPress={toggleTheme} accessibilityLabel="Toggle theme">
               {theme === 'dark' ? (
-                <Sun size={22} color={colors.textMuted} />
+                <Sun size={22} color={colors.onTeal} />
               ) : (
-                <Moon size={22} color={colors.textMuted} />
+                <Moon size={22} color={colors.onTeal} />
               )}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowInfo(true)}>
-              <Info size={22} color={colors.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout}>
-              <Text style={styles.logout}>{i18n.t('tasks.logout')}</Text>
-            </TouchableOpacity>
+            </Pressable>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => setShowInfo(true)}
+              accessibilityLabel="How it works"
+            >
+              <Info size={22} color={colors.onTeal} />
+            </Pressable>
+            <Pressable style={styles.iconButton} onPress={handleLogout} accessibilityLabel="Log out">
+              <LogOut size={22} color={colors.onTeal} />
+            </Pressable>
           </View>
         </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder={i18n.t('tasks.titlePlaceholder')}
-            placeholderTextColor={colors.textMuted}
-            value={newTitle}
-            onChangeText={setNewTitle}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={i18n.t('tasks.descriptionPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-            value={newDescription}
-            onChangeText={setNewDescription}
-          />
-          <TouchableOpacity
-            style={[styles.addButton, !newTitle.trim() && styles.addButtonDisabled]}
-            onPress={createTask}
-            disabled={!newTitle.trim()}
-          >
-            <Text style={styles.addButtonText}>{i18n.t('tasks.addButton')}</Text>
-          </TouchableOpacity>
+        <View style={styles.progressRow}>
+          <Text style={styles.pct} numberOfLines={1} adjustsFontSizeToFit>
+            {pct}%
+          </Text>
+          <Text style={styles.progressLabel}>{i18n.t('tasks.progress', { done, total })}</Text>
         </View>
-        {isPending ? (
-          <Text style={styles.emptyText}>{i18n.t('tasks.loading')}</Text>
-        ) : error ? (
-          <Text style={styles.emptyText}>{i18n.t('tasks.error')}</Text>
-        ) : (
-          <Animated.View>
-            <FlatList
-              data={tasks}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item, index }) => (
-                <Animated.View entering={FadeIn.delay(index * 100)}>
-                  <TaskItem item={item} toggleTask={toggleTask} deleteTask={deleteTask} />
-                </Animated.View>
-              )}
-              ListEmptyComponent={<Text style={styles.emptyText}>{i18n.t('tasks.empty')}</Text>}
-            />
-          </Animated.View>
-        )}
+
+        <View style={styles.track} onLayout={e => (trackWidth.value = e.nativeEvent.layout.width)}>
+          <Animated.View style={[styles.fill, fillStyle]} />
+        </View>
       </View>
-      <CustomAlert
-        visible={showInfo}
-        title={i18n.t('info.title')}
-        message={[i18n.t('info.swipeRight'), i18n.t('info.swipeLeft')]}
-        buttonText={i18n.t('info.button')}
-        onClose={() => setShowInfo(false)}
+
+      {/* b. Filter tabs */}
+      <View style={styles.tabs}>
+        {filters.map(f => {
+          const selected = filter === f.key
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={[styles.tab, { borderBottomColor: selected ? colors.teal : 'transparent' }]}
+            >
+              <Text style={[styles.tabLabel, { color: selected ? colors.text : colors.textMuted }]}>
+                {f.label}
+              </Text>
+              <Text style={[styles.tabCount, { color: selected ? colors.text : colors.textMuted }]}>
+                {f.count}
+              </Text>
+            </Pressable>
+          )
+        })}
+        <Pressable style={styles.searchButton} onPress={toggleSearch} accessibilityLabel="Search">
+          <Search size={22} color={colors.text} />
+        </Pressable>
+      </View>
+
+      {searchOpen && (
+        <View style={styles.searchRow}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={i18n.t('tasks.searchPlaceholder')}
+            placeholderTextColor={colors.textMuted}
+            cursorColor={colors.teal}
+            selectionColor={colors.teal}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+            returnKeyType="search"
+          />
+        </View>
+      )}
+
+      {/* c. List */}
+      {isPending ? (
+        <Text style={styles.status}>{i18n.t('tasks.loading')}</Text>
+      ) : error ? (
+        <Text style={styles.status}>{i18n.t('tasks.error')}</Text>
+      ) : (
+        <FlatList
+          data={visible}
+          keyExtractor={item => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeIn.delay(index * 100)}>
+              <TaskItem item={item} onToggle={toggleTask} onDelete={deleteTask} onPress={openDetails} />
+            </Animated.View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>{empty.title}</Text>
+              <Text style={styles.emptyBody}>{empty.body}</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* d. Quick-add bar */}
+      <View style={[styles.bar, { paddingBottom: barBottom }]}>
+        <Pressable style={styles.barButton} onPress={openSheet}>
+          <Text style={styles.barPlaceholder}>{i18n.t('tasks.addPlaceholder')}</Text>
+          <View style={styles.barPlus}>
+            <Plus size={22} strokeWidth={2.4} color={colors.onTeal} />
+          </View>
+        </Pressable>
+      </View>
+
+      {!sheetOpen && <CoachCard bottom={108 + insets.bottom} />}
+
+      <AddTaskSheet
+        open={sheetOpen}
+        title={newTitle}
+        description={newDescription}
+        onChangeTitle={setNewTitle}
+        onChangeDescription={setNewDescription}
+        onClose={() => setSheetOpen(false)}
+        onSubmit={addTask}
       />
-    </GestureHandlerRootView>
+
+      <CustomAlert visible={showInfo} onClose={() => setShowInfo(false)} onReplayTutorial={replayTutorial} />
+    </View>
   )
 }
 
-const getStyles = (colors: {
-  background: string
-  card: string
-  border: string
-  text: string
-  textMuted: string
-  teal: string
-  red: string
-}) =>
+const getStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      padding: 24,
-      paddingTop: 60,
     },
     header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 24,
+      backgroundColor: colors.teal,
+      paddingHorizontal: 24,
+      paddingBottom: 22,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
     },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
+    headerTop: {
+      height: 48,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    kicker: {
+      fontFamily: fonts.semibold,
+      fontSize: 11,
+      letterSpacing: 1.3,
+      textTransform: 'uppercase',
+      color: colors.onTeal,
+    },
+    headerIcons: {
+      flexDirection: 'row',
+      marginRight: -10,
+    },
+    iconButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    progressRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    pct: {
+      flexShrink: 1,
+      fontFamily: fonts.extrabold,
+      fontSize: 104,
+      lineHeight: 104,
+      letterSpacing: -5,
+      color: colors.onTeal,
+      includeFontPadding: false,
+      // Pull the line box in so the digits sit like lineHeight ~90
+      marginTop: -8,
+      marginBottom: -6,
+    },
+    progressLabel: {
+      fontFamily: fonts.semibold,
+      fontSize: 14,
+      lineHeight: 18,
+      textAlign: 'right',
+      paddingBottom: 4,
+      color: colors.onTeal,
+    },
+    track: {
+      height: 8,
+      marginTop: 18,
+      borderRadius: 999,
+      overflow: 'hidden',
+      backgroundColor: 'rgba(255,255,255,0.32)',
+    },
+    fill: {
+      height: '100%',
+      borderRadius: 999,
+      backgroundColor: colors.onTeal,
+    },
+    tabs: {
+      height: 52,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      paddingLeft: 24,
+      borderBottomWidth: 2,
+      borderBottomColor: colors.border,
+    },
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginRight: 22,
+      marginBottom: -2,
+      borderBottomWidth: 3,
+    },
+    tabLabel: {
+      fontFamily: fonts.extrabold,
+      fontSize: 15,
+    },
+    tabCount: {
+      fontFamily: fonts.regular,
+      fontSize: 12,
+    },
+    searchButton: {
+      marginLeft: 'auto',
+      width: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchRow: {
+      height: 52,
+      paddingHorizontal: 24,
+      justifyContent: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    searchInput: {
+      height: '100%',
+      fontFamily: fonts.regular,
+      fontSize: 17,
       color: colors.text,
     },
-    logout: {
-      color: colors.teal,
+    status: {
+      fontFamily: fonts.regular,
+      color: colors.textMuted,
       fontSize: 16,
+      paddingVertical: 48,
+      paddingHorizontal: 24,
     },
-    input: {
-      backgroundColor: colors.card,
+    empty: {
+      paddingVertical: 48,
+      paddingHorizontal: 24,
+      gap: 6,
+    },
+    emptyTitle: {
+      fontFamily: fonts.extrabold,
+      fontSize: 20,
+      color: colors.text,
+    },
+    emptyBody: {
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      color: colors.textMuted,
+    },
+    bar: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingTop: 12,
+      paddingHorizontal: 16,
+      backgroundColor: colors.background,
+    },
+    barButton: {
+      height: 60,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingLeft: 20,
+      paddingRight: 10,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      color: colors.text,
-      fontSize: 16,
+      backgroundColor: colors.card,
     },
-    addButton: {
-      backgroundColor: colors.teal,
-      padding: 14,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    addButtonText: {
-      color: colors.background,
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-    emptyText: {
+    barPlaceholder: {
+      fontFamily: fonts.regular,
+      fontSize: 17,
       color: colors.textMuted,
-      textAlign: 'center',
-      marginTop: 48,
-      fontSize: 16,
     },
-    inputContainer: {
-      marginBottom: 24,
-      gap: 8,
-    },
-    addButtonDisabled: {
-      opacity: 0.4,
+    barPlus: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.teal,
     },
   })
