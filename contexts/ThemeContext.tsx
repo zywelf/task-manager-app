@@ -1,4 +1,8 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useRef, useState } from 'react'
+import { Image, StyleSheet, View } from 'react-native'
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
+import { captureRef } from 'react-native-view-shot'
 
 type Theme = 'light' | 'dark'
 
@@ -40,18 +44,90 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+// Length of the light/dark crossfade
+const THEME_FADE_MS = 400
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Dark is the default theme of the redesign
   const [theme, setTheme] = useState<Theme>('dark')
+  const rootRef = useRef<View>(null)
+  const [snapshot, setSnapshot] = useState<string | null>(null)
+  const switching = useRef(false)
+  const snapshotOpacity = useSharedValue(0)
 
-  const toggleTheme = () => {
-    setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+  const flipTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+
+  const endTransition = () => {
+    setSnapshot(null)
+    switching.current = false
   }
+
+  /**
+   * Smooth theme switch: freeze the current screen as an image on top, switch the theme
+   * underneath, then fade the image out (ease-in-out). Every color, including icons,
+   * appears to crossfade without animating each style separately.
+   */
+  const toggleTheme = async () => {
+    if (switching.current) return
+    switching.current = true
+    try {
+      const uri = await captureRef(rootRef, { format: 'jpg', quality: 0.9, result: 'tmpfile' })
+      snapshotOpacity.value = 1
+      setSnapshot(uri)
+    } catch {
+      // Snapshot not available: switch without the animation
+      flipTheme()
+      switching.current = false
+    }
+  }
+
+  // The snapshot is painted: switch the theme under it and fade it out
+  const onSnapshotLoaded = () => {
+    requestAnimationFrame(() => {
+      flipTheme()
+      snapshotOpacity.value = withTiming(
+        0,
+        { duration: THEME_FADE_MS, easing: Easing.inOut(Easing.ease) },
+        finished => {
+          if (finished) scheduleOnRN(endTransition)
+        },
+      )
+    })
+  }
+
+  const snapshotStyle = useAnimatedStyle(() => ({ opacity: snapshotOpacity.value }))
 
   const colors = theme === 'dark' ? darkColors : lightColors
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme, colors }}>{children}</ThemeContext.Provider>
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme, colors }}>
+      {/* collapsable={false} keeps this a real native view so it can be captured */}
+      <View ref={rootRef} collapsable={false} style={[styles.root, { backgroundColor: colors.background }]}>
+        {children}
+      </View>
+      {snapshot && (
+        <Animated.View style={[StyleSheet.absoluteFill, snapshotStyle]} pointerEvents="none">
+          <Image
+            source={{ uri: snapshot }}
+            style={styles.root}
+            onLoad={onSnapshotLoaded}
+            onError={() => {
+              flipTheme()
+              endTransition()
+            }}
+            fadeDuration={0}
+          />
+        </Animated.View>
+      )}
+    </ThemeContext.Provider>
+  )
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+})
 
 export function useTheme() {
   const context = useContext(ThemeContext)

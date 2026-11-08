@@ -7,11 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "taskmanagerapp",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0a0a0a",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "backgroundColor": "#0a0a0a",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

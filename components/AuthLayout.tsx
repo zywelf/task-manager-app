@@ -1,9 +1,11 @@
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { ArrowLeft } from 'lucide-react-native'
 import { useTheme } from '@/contexts/ThemeContext'
 import { fonts } from '@/constants/fonts'
+import { useKeyboardVisible } from '@/hooks/useKeyboardVisible'
 import i18n from '@/i18n'
 
 type AuthLayoutProps = {
@@ -31,19 +33,37 @@ export default function AuthLayout({
 }: AuthLayoutProps) {
   const { colors, theme } = useTheme()
   const insets = useSafeAreaInsets()
+  const keyboardVisible = useKeyboardVisible()
+  const scrollRef = useRef<ScrollView>(null)
+
+  // The form sits at the bottom: when the keyboard opens, scroll so the
+  // fields and the submit button stay visible above it
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      // Wait for KeyboardAvoidingView to apply its padding first
+      timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)
+    })
+    return () => {
+      sub.remove()
+      clearTimeout(timer)
+    }
+  }, [])
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    // Android is edge-to-edge and doesn't resize for the keyboard, so pad on both platforms
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior="padding">
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={[
           styles.container,
-          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 32 },
+          { paddingTop: insets.top + 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 32 },
         ]}
+        // Taps outside an input close the keyboard
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.topRow, { borderBottomColor: colors.border }]}>

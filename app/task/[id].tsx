@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -17,6 +8,7 @@ import { useTasks } from '@/hooks/useTasks'
 import { useTheme, Colors } from '@/contexts/ThemeContext'
 import { fonts } from '@/constants/fonts'
 import { PrimaryButton, SecondaryButton } from '@/components/ui'
+import { useKeyboardVisible } from '@/hooks/useKeyboardVisible'
 import i18n from '@/i18n'
 
 export default function TaskDetails() {
@@ -32,6 +24,17 @@ export default function TaskDetails() {
   const [editDescription, setEditDescription] = useState(task?.description ?? '')
   const [titleFocused, setTitleFocused] = useState(false)
   const [descriptionFocused, setDescriptionFocused] = useState(false)
+  const keyboardVisible = useKeyboardVisible()
+  const scrollRef = useRef<ScrollView>(null)
+  const descriptionRef = useRef<TextInput>(null)
+  const descriptionY = useRef(0)
+
+  // Bring the description box into view once the keyboard has opened
+  const revealDescription = () =>
+    setTimeout(
+      () => scrollRef.current?.scrollTo({ y: Math.max(0, descriptionY.current - 12), animated: true }),
+      150,
+    )
 
   // Guards against navigating back twice (e.g. Delete, then the task disappears from the cache)
   const leaving = useRef(false)
@@ -66,10 +69,8 @@ export default function TaskDetails() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    // Edge-to-edge Android doesn't resize for the keyboard: pad on both platforms
+    <KeyboardAvoidingView style={[styles.container, { paddingTop: insets.top }]} behavior="padding">
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
 
       <View style={styles.topBar}>
@@ -84,9 +85,13 @@ export default function TaskDetails() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
+        style={styles.scroll}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
+        // Taps outside an input close the keyboard
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <View style={styles.tagRow}>
           <Text
@@ -108,8 +113,10 @@ export default function TaskDetails() {
             value={editTitle}
             onChangeText={v => setEditTitle(v.replace(/\n/g, ''))}
             multiline
-            submitBehavior="blurAndSubmit"
-            returnKeyType="done"
+            // Return moves to the description instead of adding a newline
+            submitBehavior="submit"
+            returnKeyType="next"
+            onSubmitEditing={() => descriptionRef.current?.focus()}
             cursorColor={colors.teal}
             selectionColor={colors.teal}
             onFocus={() => setTitleFocused(true)}
@@ -117,9 +124,10 @@ export default function TaskDetails() {
           />
         </View>
 
-        <View style={styles.field}>
+        <View style={styles.field} onLayout={e => (descriptionY.current = e.nativeEvent.layout.y)}>
           <Text style={styles.label}>{i18n.t('details.descriptionLabel')}</Text>
           <TextInput
+            ref={descriptionRef}
             style={[
               styles.descriptionInput,
               { borderColor: descriptionFocused ? colors.teal : colors.border },
@@ -132,7 +140,14 @@ export default function TaskDetails() {
             textAlignVertical="top"
             cursorColor={colors.teal}
             selectionColor={colors.teal}
-            onFocus={() => setDescriptionFocused(true)}
+            // Last field: Return saves
+            returnKeyType="done"
+            submitBehavior="submit"
+            onSubmitEditing={handleSave}
+            onFocus={() => {
+              setDescriptionFocused(true)
+              revealDescription()
+            }}
             onBlur={() => setDescriptionFocused(false)}
           />
         </View>
@@ -146,7 +161,7 @@ export default function TaskDetails() {
         />
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: 30 + insets.bottom }]}>
+      <View style={[styles.footer, { paddingBottom: keyboardVisible ? 12 : 30 + insets.bottom }]}>
         <PrimaryButton
           label={i18n.t('details.save')}
           icon={<Check size={20} strokeWidth={2.4} color={colors.onTeal} />}
@@ -190,7 +205,11 @@ const getStyles = (colors: Colors) =>
       fontSize: 15,
       color: colors.red,
     },
+    scroll: {
+      flex: 1,
+    },
     body: {
+      flexGrow: 1,
       padding: 24,
       gap: 20,
     },

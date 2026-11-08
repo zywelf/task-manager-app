@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { TextInput } from 'react-native'
 import { router } from 'expo-router'
 import { ArrowRight } from 'lucide-react-native'
 import { getAuthErrorMessage, register } from '@/services/auth'
@@ -19,6 +20,8 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { colors } = useTheme()
+  const emailRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInput>(null)
 
   const handleRegister = async () => {
     if (isLoading) return
@@ -72,16 +75,24 @@ export default function Register() {
         value={name}
         onChangeText={clearError(setName)}
         autoComplete="name"
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => emailRef.current?.focus()}
       />
       <Field
+        ref={emailRef}
         label={i18n.t('auth.email')}
         value={email}
         onChangeText={clearError(setEmail)}
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => passwordRef.current?.focus()}
       />
       <Field
+        ref={passwordRef}
         label={i18n.t('auth.password')}
         value={password}
         onChangeText={clearError(setPassword)}

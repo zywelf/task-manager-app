@@ -1,6 +1,9 @@
 import { useEffect } from 'react'
+import { View } from 'react-native'
 import { Stack } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
+import * as SystemUI from 'expo-system-ui'
+import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native'
 import { enableScreens } from 'react-native-screens'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import Toast from 'react-native-toast-message'
@@ -18,27 +21,43 @@ import { toastConfig } from '@/components/AppToast'
 
 enableScreens()
 SplashScreen.preventAutoHideAsync()
+// Root window colour (what shows behind screens during transitions); dark is the default theme
+SystemUI.setBackgroundColorAsync('#0a0a0a')
 
 function AppStack() {
-  const { colors } = useTheme()
+  const { colors, theme } = useTheme()
+
+  // Keep the native root background in sync with the theme so no white shows between screens
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background)
+  }, [colors.background])
+
+  // React Navigation draws its own container background (light by default): match the app theme
+  const baseNavTheme = theme === 'dark' ? DarkTheme : DefaultTheme
+  const navTheme = {
+    ...baseNavTheme,
+    colors: { ...baseNavTheme.colors, background: colors.background, card: colors.background },
+  }
 
   return (
-    <>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth/login" />
-        <Stack.Screen name="auth/register" />
-        <Stack.Screen name="tasks" />
-        <Stack.Screen name="task/[id]" />
-      </Stack>
-      <Toast config={toastConfig} />
-    </>
+    <NavigationThemeProvider value={navTheme}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="auth/register" />
+          <Stack.Screen name="tasks" />
+          <Stack.Screen name="task/[id]" />
+        </Stack>
+        <Toast config={toastConfig} />
+      </View>
+    </NavigationThemeProvider>
   )
 }
 

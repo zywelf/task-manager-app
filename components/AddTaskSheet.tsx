@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  BackHandler,
+  Keyboard,
   KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -16,6 +16,7 @@ import { Plus, X } from 'lucide-react-native'
 import { useTheme } from '@/contexts/ThemeContext'
 import { fonts } from '@/constants/fonts'
 import { Field, PrimaryButton } from '@/components/ui'
+import { useKeyboardVisible } from '@/hooks/useKeyboardVisible'
 import i18n from '@/i18n'
 
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1)
@@ -41,8 +42,10 @@ export default function AddTaskSheet({
 }: AddTaskSheetProps) {
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
+  const keyboardVisible = useKeyboardVisible()
   const titleRef = useRef<TextInput>(null)
-  // The Modal stays mounted until the closing animation ends
+  const descriptionRef = useRef<TextInput>(null)
+  // The sheet stays mounted until the closing animation ends
   const [mounted, setMounted] = useState(open)
   const progress = useSharedValue(0)
   const sheetHeight = useSharedValue(600)
@@ -59,6 +62,16 @@ export default function AddTaskSheet({
     })
   }, [open, progress])
 
+  // Android back button closes the sheet
+  useEffect(() => {
+    if (!open) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose()
+      return true
+    })
+    return () => sub.remove()
+  }, [open, onClose])
+
   const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: (1 - progress.value) * sheetHeight.value * 1.05 }],
@@ -66,13 +79,18 @@ export default function AddTaskSheet({
 
   const canAdd = !!title.trim()
 
-  return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
-          <Pressable style={styles.fill} onPress={onClose} />
-        </Animated.View>
+  if (!mounted) return null
 
+  // Rendered as an overlay in the Tasks screen rather than a Modal: on Android a Modal is a
+  // separate window with its own keyboard handling, which fights with behavior="padding".
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents={open ? 'auto' : 'none'}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
+        <Pressable style={styles.fill} onPress={onClose} />
+      </Animated.View>
+
+      {/* Edge-to-edge Android doesn't resize for the keyboard: pad on both platforms */}
+      <KeyboardAvoidingView style={styles.avoider} behavior="padding" pointerEvents="box-none">
         <Animated.View
           onLayout={e => (sheetHeight.value = e.nativeEvent.layout.height)}
           style={[
@@ -80,47 +98,55 @@ export default function AddTaskSheet({
             {
               backgroundColor: colors.background,
               borderColor: colors.border,
-              paddingBottom: 34 + insets.bottom,
+              paddingBottom: keyboardVisible ? 20 : 34 + insets.bottom,
             },
             sheetStyle,
           ]}
         >
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          {/* Taps on the sheet outside the inputs close the keyboard */}
+          <Pressable style={styles.content} onPress={Keyboard.dismiss} accessible={false}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>{i18n.t('sheet.title')}</Text>
-            <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Close">
-              <X size={22} color={colors.text} />
-            </Pressable>
-          </View>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>{i18n.t('sheet.title')}</Text>
+              <Pressable style={styles.close} onPress={onClose} accessibilityLabel="Close">
+                <X size={22} color={colors.text} />
+              </Pressable>
+            </View>
 
-          <Field
-            ref={titleRef}
-            label={i18n.t('sheet.titleLabel')}
-            placeholder={i18n.t('sheet.titlePlaceholder')}
-            value={title}
-            onChangeText={onChangeTitle}
-            returnKeyType="done"
-            submitBehavior="submit"
-            onSubmitEditing={onSubmit}
-          />
-          <Field
-            label={i18n.t('sheet.descriptionLabel')}
-            placeholder={i18n.t('sheet.descriptionPlaceholder')}
-            value={description}
-            onChangeText={onChangeDescription}
-            rows={3}
-          />
+            <Field
+              ref={titleRef}
+              label={i18n.t('sheet.titleLabel')}
+              placeholder={i18n.t('sheet.titlePlaceholder')}
+              value={title}
+              onChangeText={onChangeTitle}
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => descriptionRef.current?.focus()}
+            />
+            <Field
+              ref={descriptionRef}
+              label={i18n.t('sheet.descriptionLabel')}
+              placeholder={i18n.t('sheet.descriptionPlaceholder')}
+              value={description}
+              onChangeText={onChangeDescription}
+              rows={3}
+              // Last field: Return submits the form
+              returnKeyType="done"
+              submitBehavior="submit"
+              onSubmitEditing={onSubmit}
+            />
 
-          <PrimaryButton
-            label={i18n.t('sheet.addButton')}
-            icon={<Plus size={22} strokeWidth={2.4} color={colors.onTeal} />}
-            onPress={onSubmit}
-            disabled={!canAdd}
-          />
+            <PrimaryButton
+              label={i18n.t('sheet.addButton')}
+              icon={<Plus size={22} strokeWidth={2.4} color={colors.onTeal} />}
+              onPress={onSubmit}
+              disabled={!canAdd}
+            />
+          </Pressable>
         </Animated.View>
       </KeyboardAvoidingView>
-    </Modal>
+    </View>
   )
 }
 
@@ -131,11 +157,12 @@ const styles = StyleSheet.create({
   backdrop: {
     backgroundColor: 'rgba(32,30,29,0.5)',
   },
+  // Pushes the sheet to the bottom; the keyboard padding lifts it above the keyboard
+  avoider: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -143,6 +170,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 20,
     paddingHorizontal: 24,
+  },
+  content: {
     gap: 16,
   },
   handle: {

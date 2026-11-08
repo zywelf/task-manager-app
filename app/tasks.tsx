@@ -1,6 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
-import { View, Text, Pressable, StyleSheet, FlatList, TextInput, Keyboard } from 'react-native'
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  Keyboard,
+  KeyboardAvoidingView,
+} from 'react-native'
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
@@ -15,9 +31,12 @@ import TaskItem from '@/components/TaskItem'
 import CustomAlert from '@/components/CustomAlert'
 import AddTaskSheet from '@/components/AddTaskSheet'
 import CoachCard from '@/components/CoachCard'
+import { useKeyboardVisible } from '@/hooks/useKeyboardVisible'
 import i18n from '@/i18n'
 
 type Filter = 'all' | 'active' | 'completed'
+const FILTER_ORDER: Filter[] = ['all', 'active', 'completed']
+const TAB_EASE = { duration: 250, easing: Easing.inOut(Easing.ease) }
 
 export default function Tasks() {
   const [filter, setFilter] = useState<Filter>('all')
@@ -97,6 +116,32 @@ export default function Tasks() {
     router.push({ pathname: '/task/[id]', params: { id: String(task.id) } })
   }
 
+  // Sliding underline under the selected tab
+  const tabLayouts = useRef<Partial<Record<Filter, { x: number; width: number }>>>({})
+  const indicatorX = useSharedValue(0)
+  const indicatorWidth = useSharedValue(0)
+  const indicatorStyle = useAnimatedStyle(() => ({ left: indicatorX.value, width: indicatorWidth.value }))
+  useEffect(() => {
+    const layout = tabLayouts.current[filter]
+    if (!layout) return
+    indicatorX.value = withTiming(layout.x, TAB_EASE)
+    indicatorWidth.value = withTiming(layout.width, TAB_EASE)
+  }, [filter, indicatorX, indicatorWidth])
+
+  // Horizontal swipe on the header or tabs changes tab (not on the list: rows use swipes)
+  const changeFilterBy = (step: number) => {
+    const next = FILTER_ORDER[FILTER_ORDER.indexOf(filter) + step]
+    if (next) setFilter(next)
+  }
+  const tabSwipe = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
+    .runOnJS(true)
+    .onEnd(e => {
+      if (e.translationX < -50 || e.velocityX < -500) changeFilterBy(1)
+      else if (e.translationX > 50 || e.velocityX > 500) changeFilterBy(-1)
+    })
+
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: 'all', label: i18n.t('tasks.filterAll'), count: total },
     { key: 'active', label: i18n.t('tasks.filterActive'), count: active },
@@ -115,125 +160,155 @@ export default function Tasks() {
           body: i18n.t('tasks.emptyFilterBody'),
         }
 
-  const barBottom = 26 + insets.bottom
+  const keyboardVisible = useKeyboardVisible()
+  // With the keyboard open the bar sits right on top of it
+  const barBottom = keyboardVisible ? 12 : 26 + insets.bottom
 
   return (
     <View style={styles.container}>
       {/* Content on the teal header follows onTeal */}
       <StatusBar style={theme === 'dark' ? 'dark' : 'light'} />
 
-      {/* a. Teal header field */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={styles.headerTop}>
-          <Text style={styles.kicker}>{i18n.t('tasks.title')}</Text>
-          <View style={styles.headerIcons}>
-            <Pressable style={styles.iconButton} onPress={toggleTheme} accessibilityLabel="Toggle theme">
-              {theme === 'dark' ? (
-                <Sun size={22} color={colors.onTeal} />
-              ) : (
-                <Moon size={22} color={colors.onTeal} />
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => setShowInfo(true)}
-              accessibilityLabel="How it works"
-            >
-              <Info size={22} color={colors.onTeal} />
-            </Pressable>
-            <Pressable style={styles.iconButton} onPress={handleLogout} accessibilityLabel="Log out">
-              <LogOut size={22} color={colors.onTeal} />
-            </Pressable>
-          </View>
-        </View>
+      {/* Edge-to-edge Android doesn't resize for the keyboard: pad on both platforms.
+          Overlays (coach card, sheet, dialog) stay outside so they aren't shifted twice. */}
+      <KeyboardAvoidingView style={styles.main} behavior="padding">
+        <GestureDetector gesture={tabSwipe}>
+          <View>
+            {/* a. Teal header field */}
+            <View style={[styles.header, { paddingTop: insets.top }]}>
+              <View style={styles.headerTop}>
+                <Text style={styles.kicker}>{i18n.t('tasks.title')}</Text>
+                <View style={styles.headerIcons}>
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={toggleTheme}
+                    accessibilityLabel="Toggle theme"
+                  >
+                    {theme === 'dark' ? (
+                      <Sun size={22} color={colors.onTeal} />
+                    ) : (
+                      <Moon size={22} color={colors.onTeal} />
+                    )}
+                  </Pressable>
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => setShowInfo(true)}
+                    accessibilityLabel="How it works"
+                  >
+                    <Info size={22} color={colors.onTeal} />
+                  </Pressable>
+                  <Pressable style={styles.iconButton} onPress={handleLogout} accessibilityLabel="Log out">
+                    <LogOut size={22} color={colors.onTeal} />
+                  </Pressable>
+                </View>
+              </View>
 
-        <View style={styles.progressRow}>
-          <Text style={styles.pct} numberOfLines={1} adjustsFontSizeToFit>
-            {pct}%
-          </Text>
-          <Text style={styles.progressLabel}>{i18n.t('tasks.progress', { done, total })}</Text>
-        </View>
+              <View style={styles.progressRow}>
+                <Text style={styles.pct} numberOfLines={1} adjustsFontSizeToFit>
+                  {pct}%
+                </Text>
+                <Text style={styles.progressLabel}>{i18n.t('tasks.progress', { done, total })}</Text>
+              </View>
 
-        <View style={styles.track} onLayout={e => (trackWidth.value = e.nativeEvent.layout.width)}>
-          <Animated.View style={[styles.fill, fillStyle]} />
-        </View>
-      </View>
-
-      {/* b. Filter tabs */}
-      <View style={styles.tabs}>
-        {filters.map(f => {
-          const selected = filter === f.key
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              style={[styles.tab, { borderBottomColor: selected ? colors.teal : 'transparent' }]}
-            >
-              <Text style={[styles.tabLabel, { color: selected ? colors.text : colors.textMuted }]}>
-                {f.label}
-              </Text>
-              <Text style={[styles.tabCount, { color: selected ? colors.text : colors.textMuted }]}>
-                {f.count}
-              </Text>
-            </Pressable>
-          )
-        })}
-        <Pressable style={styles.searchButton} onPress={toggleSearch} accessibilityLabel="Search">
-          <Search size={22} color={colors.text} />
-        </Pressable>
-      </View>
-
-      {searchOpen && (
-        <View style={styles.searchRow}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder={i18n.t('tasks.searchPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-            cursorColor={colors.teal}
-            selectionColor={colors.teal}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            returnKeyType="search"
-          />
-        </View>
-      )}
-
-      {/* c. List */}
-      {isPending ? (
-        <Text style={styles.status}>{i18n.t('tasks.loading')}</Text>
-      ) : error ? (
-        <Text style={styles.status}>{i18n.t('tasks.error')}</Text>
-      ) : (
-        <FlatList
-          data={visible}
-          keyExtractor={item => item.id.toString()}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
-          renderItem={({ item, index }) => (
-            <Animated.View entering={FadeIn.delay(index * 100)}>
-              <TaskItem item={item} onToggle={toggleTask} onDelete={deleteTask} onPress={openDetails} />
-            </Animated.View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>{empty.title}</Text>
-              <Text style={styles.emptyBody}>{empty.body}</Text>
+              <View style={styles.track} onLayout={e => (trackWidth.value = e.nativeEvent.layout.width)}>
+                <Animated.View style={[styles.fill, fillStyle]} />
+              </View>
             </View>
-          }
-        />
-      )}
 
-      {/* d. Quick-add bar */}
-      <View style={[styles.bar, { paddingBottom: barBottom }]}>
-        <Pressable style={styles.barButton} onPress={openSheet}>
-          <Text style={styles.barPlaceholder}>{i18n.t('tasks.addPlaceholder')}</Text>
-          <View style={styles.barPlus}>
-            <Plus size={22} strokeWidth={2.4} color={colors.onTeal} />
+            {/* b. Filter tabs */}
+            <View style={styles.tabs}>
+              {filters.map(f => {
+                const selected = filter === f.key
+                return (
+                  <Pressable
+                    key={f.key}
+                    onPress={() => setFilter(f.key)}
+                    onLayout={e => {
+                      const { x, width } = e.nativeEvent.layout
+                      tabLayouts.current[f.key] = { x, width }
+                      // Place the underline without animation the first time
+                      if (f.key === filter) {
+                        indicatorX.value = x
+                        indicatorWidth.value = width
+                      }
+                    }}
+                    style={styles.tab}
+                  >
+                    <Text style={[styles.tabLabel, { color: selected ? colors.text : colors.textMuted }]}>
+                      {f.label}
+                    </Text>
+                    <Text style={[styles.tabCount, { color: selected ? colors.text : colors.textMuted }]}>
+                      {f.count}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+              <Pressable style={styles.searchButton} onPress={toggleSearch} accessibilityLabel="Search">
+                <Search size={22} color={colors.text} />
+              </Pressable>
+              <Animated.View style={[styles.tabIndicator, indicatorStyle]} />
+            </View>
           </View>
-        </Pressable>
-      </View>
+        </GestureDetector>
+
+        {searchOpen && (
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder={i18n.t('tasks.searchPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              cursorColor={colors.teal}
+              selectionColor={colors.teal}
+              value={query}
+              onChangeText={setQuery}
+              autoFocus
+              returnKeyType="search"
+            />
+          </View>
+        )}
+
+        {/* c. List */}
+        {isPending ? (
+          <View style={styles.list}>
+            <Text style={styles.status}>{i18n.t('tasks.loading')}</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.list}>
+            <Text style={styles.status}>{i18n.t('tasks.error')}</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={visible}
+            keyExtractor={item => item.id.toString()}
+            showsVerticalScrollIndicator={false}
+            style={styles.list}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: 24 }}
+            renderItem={({ item, index }) => (
+              <Animated.View entering={FadeIn.delay(index * 100)}>
+                <TaskItem item={item} onToggle={toggleTask} onDelete={deleteTask} onPress={openDetails} />
+              </Animated.View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>{empty.title}</Text>
+                <Text style={styles.emptyBody}>{empty.body}</Text>
+              </View>
+            }
+          />
+        )}
+
+        {/* d. Quick-add bar */}
+        <View style={[styles.bar, { paddingBottom: barBottom }]}>
+          <Pressable style={styles.barButton} onPress={openSheet}>
+            <Text style={styles.barPlaceholder}>{i18n.t('tasks.addPlaceholder')}</Text>
+            <View style={styles.barPlus}>
+              <Plus size={22} strokeWidth={2.4} color={colors.onTeal} />
+            </View>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
 
       {!sheetOpen && <CoachCard bottom={108 + insets.bottom} />}
 
@@ -339,8 +414,13 @@ const getStyles = (colors: Colors) =>
       alignItems: 'center',
       gap: 6,
       marginRight: 22,
-      marginBottom: -2,
-      borderBottomWidth: 3,
+    },
+    // Teal 3px line over the 2px divider, slides between tabs
+    tabIndicator: {
+      position: 'absolute',
+      bottom: -2,
+      height: 3,
+      backgroundColor: colors.teal,
     },
     tabLabel: {
       fontFamily: fonts.extrabold,
@@ -391,11 +471,14 @@ const getStyles = (colors: Colors) =>
       fontSize: 14,
       color: colors.textMuted,
     },
+    main: {
+      flex: 1,
+    },
+    list: {
+      flex: 1,
+    },
+    // Last row of the screen (not floating), so the keyboard padding lifts it
     bar: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
       paddingTop: 12,
       paddingHorizontal: 16,
       backgroundColor: colors.background,

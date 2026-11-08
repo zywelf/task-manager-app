@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { TextInput } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ArrowRight } from 'lucide-react-native'
 import { getAuthErrorMessage, login } from '@/services/auth'
@@ -19,6 +20,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const { colors } = useTheme()
   const tutorial = useTutorial()
+  const passwordRef = useRef<TextInput>(null)
 
   // Coming back from Register with a prefilled email
   useEffect(() => {
@@ -80,8 +82,12 @@ export default function Login() {
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => passwordRef.current?.focus()}
       />
       <Field
+        ref={passwordRef}
         label={i18n.t('auth.password')}
         value={password}
         onChangeText={v => {
